@@ -26,6 +26,8 @@ function App() {
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
   const [refreshKey, setRefreshKey] = useState(0);
   const [categoryFilter, setCategoryFilter] = useState('');
+  const [selectedStatement, setSelectedStatement] = useState('');
+  const [cardholder, setCardholder] = useState('');
   const [theme, setTheme] = useState<Theme>(() => {
     return (localStorage.getItem('theme') as Theme) || 'dark';
   });
@@ -122,7 +124,10 @@ function App() {
             <button
               key={tab}
               className={`tab ${activeTab === tab ? 'active' : ''}`}
-              onClick={() => { setActiveTab(tab); if (tab !== 'transactions') setCategoryFilter(''); }}
+              onClick={() => {
+                setActiveTab(tab);
+                if (tab !== 'transactions') setCategoryFilter('');
+              }}
             >
               {tab.charAt(0).toUpperCase() + tab.slice(1)}
             </button>
@@ -131,7 +136,7 @@ function App() {
         <div className="header-right">
           <div className="user-menu-wrapper">
             <button className="user-menu-btn" onClick={() => setMenuOpen(!menuOpen)}>
-              {user.displayName}
+              {user.displayName?.split(' ')[0] || 'Menu'}
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="6 9 12 15 18 9" />
               </svg>
@@ -141,30 +146,26 @@ function App() {
                 <div className="user-menu-backdrop" onClick={() => setMenuOpen(false)} />
                 <div className="user-menu">
                   {householdName && (
-                    <div className="user-menu-section">
-                      <div className="user-menu-label">Household</div>
-                      <div className="user-menu-value">{householdName}</div>
+                    <div className="user-menu-item user-menu-info">
+                      {householdName}
                     </div>
                   )}
                   {inviteCode && (
-                    <div className="user-menu-section">
-                      <div className="user-menu-label">Invite Code</div>
-                      <button
-                        className="invite-code-btn"
-                        onClick={() => {
-                          navigator.clipboard.writeText(inviteCode);
-                          setCodeCopied(true);
-                          setTimeout(() => setCodeCopied(false), 2000);
-                        }}
-                      >
-                        <span className="invite-code-text">{inviteCode}</span>
-                        <span className="invite-code-hint">{codeCopied ? 'Copied!' : 'Click to copy'}</span>
-                      </button>
-                    </div>
+                    <button
+                      className="user-menu-item"
+                      onClick={() => {
+                        navigator.clipboard.writeText(inviteCode);
+                        setCodeCopied(true);
+                        setTimeout(() => setCodeCopied(false), 2000);
+                      }}
+                    >
+                      Invite: <span className="invite-code-inline">{inviteCode}</span>
+                      <span className="invite-code-hint">{codeCopied ? 'Copied!' : ''}</span>
+                    </button>
                   )}
                   <div className="user-menu-divider" />
                   <button className="user-menu-item" onClick={() => { setTheme(theme === 'dark' ? 'light' : 'dark'); }}>
-                    {theme === 'dark' ? '\u2600\uFE0F' : '\uD83C\uDF19'} {theme === 'dark' ? 'Light mode' : 'Dark mode'}
+                    {theme === 'dark' ? 'Light mode' : 'Dark mode'}
                   </button>
                   <button className="user-menu-item" onClick={handleLogout}>Sign out</button>
                 </div>
@@ -174,8 +175,27 @@ function App() {
         </div>
       </header>
       <main className="app-main">
-        {activeTab === 'dashboard' && <Dashboard key={refreshKey} onCategoryClick={navigateToCategory} theme={theme} householdId={householdId} />}
-        {activeTab === 'transactions' && <TransactionList key={`${refreshKey}-${categoryFilter}`} onUpdate={refresh} initialCategory={categoryFilter} householdId={householdId} />}
+        {activeTab === 'dashboard' && (
+          <Dashboard
+            key={refreshKey}
+            onCategoryClick={navigateToCategory}
+            theme={theme}
+            householdId={householdId}
+            selectedStatement={selectedStatement}
+            onStatementChange={setSelectedStatement}
+            cardholder={cardholder}
+            onCardholderChange={setCardholder}
+          />
+        )}
+        {activeTab === 'transactions' && (
+          <TransactionList
+            key={`${refreshKey}-${categoryFilter}`}
+            onUpdate={refresh}
+            initialCategory={categoryFilter}
+            initialStatement={selectedStatement}
+            householdId={householdId}
+          />
+        )}
         {activeTab === 'upload' && <Upload onUploaded={() => { refresh(); setActiveTab('transactions'); }} householdId={householdId} />}
         {activeTab === 'mappings' && <MappingsManager key={refreshKey} householdId={householdId} />}
       </main>

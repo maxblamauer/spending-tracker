@@ -40,6 +40,10 @@ interface Props {
   onCategoryClick: (category: string) => void;
   theme: 'dark' | 'light';
   householdId: string;
+  selectedStatement: string;
+  onStatementChange: (id: string) => void;
+  cardholder: string;
+  onCardholderChange: (cardholder: string) => void;
 }
 
 function fmtMoney(n: number): string {
@@ -83,15 +87,15 @@ function SparkCard({ label, value, change, subtitle, invertColor }: {
   );
 }
 
-export function Dashboard({ onCategoryClick, theme, householdId }: Props) {
+export function Dashboard({ onCategoryClick, theme, householdId, selectedStatement, onStatementChange, cardholder, onCardholderChange }: Props) {
   const [byCategory, setByCategory] = useState<CategoryStat[]>([]);
   const [statements, setStatements] = useState<StatementInfo[]>([]);
   const [allTransactions, setAllTransactions] = useState<TransactionDoc[]>([]);
-  const [cardholder, setCardholder] = useState('');
-  const [selectedStatement, setSelectedStatement] = useState('');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
+      setLoading(true);
       // Load statements
       const stmtSnap = await getDocs(
         query(collection(db, 'households', householdId, 'statements'), orderBy('statementDate', 'desc'))
@@ -103,6 +107,7 @@ export function Dashboard({ onCategoryClick, theme, householdId }: Props) {
       const txnSnap = await getDocs(collection(db, 'households', householdId, 'transactions'));
       const txns = txnSnap.docs.map((d) => d.data() as TransactionDoc);
       setAllTransactions(txns);
+      setLoading(false);
     };
     load();
   }, [householdId]);
@@ -195,45 +200,90 @@ export function Dashboard({ onCategoryClick, theme, householdId }: Props) {
   const isDark = theme === 'dark';
 
   const nivoTheme = {
-    text: { fill: isDark ? '#c8d0da' : '#475569' },
+    text: { fill: isDark ? '#dcdcdc' : '#475569' },
     tooltip: {
       container: {
-        background: isDark ? '#1c2433' : '#ffffff',
-        border: `1px solid ${isDark ? '#28334a' : '#d6d3cd'}`,
+        background: isDark ? '#2a2a2a' : '#ffffff',
+        border: `1px solid ${isDark ? '#3a3a3a' : '#d6d3cd'}`,
         borderRadius: '8px',
-        color: isDark ? '#c8d0da' : '#2c2c2c',
+        color: isDark ? '#dcdcdc' : '#2c2c2c',
         fontSize: '13px',
+        fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
         boxShadow: isDark ? '0 4px 12px rgba(0,0,0,0.4)' : '0 4px 12px rgba(0,0,0,0.08)',
       },
     },
-    grid: { line: { stroke: isDark ? '#28334a' : '#e5e2dc' } },
+    grid: { line: { stroke: isDark ? '#363636' : '#e5e2dc' } },
     axis: {
-      ticks: { text: { fill: isDark ? '#7a8a9e' : '#6b7280', fontSize: 12 } },
-      legend: { text: { fill: isDark ? '#7a8a9e' : '#6b7280', fontSize: 12 } },
+      ticks: { text: { fill: isDark ? '#999999' : '#6b7280', fontSize: 11, fontFamily: "'Inter', sans-serif" } },
+      legend: { text: { fill: isDark ? '#999999' : '#6b7280', fontSize: 11, fontFamily: "'Inter', sans-serif" } },
     },
-    labels: { text: { fill: '#ffffff', fontSize: 11, fontWeight: 700 } },
-    crosshair: { line: { stroke: isDark ? '#7a8a9e' : '#94a3b8', strokeWidth: 1, strokeDasharray: '4 4' } },
+    labels: { text: { fill: '#ffffff', fontSize: 11, fontWeight: 700, fontFamily: "'Inter', sans-serif" } },
+    crosshair: { line: { stroke: 'transparent', strokeWidth: 0 } },
   };
+
+  // For bar chart x-axis: show every Nth label if there are too many
+  const barTickInterval = dailySpending.length > 15 ? 2 : 1;
+  const barTickValues = dailySpending
+    .map((d, i) => (i % barTickInterval === 0 ? d.transDate.slice(5) : null))
+    .filter(Boolean) as string[];
 
   return (
     <div className="dashboard">
-      <div className="dashboard-controls">
-        <select value={selectedStatement} onChange={(e) => setSelectedStatement(e.target.value)}>
-          <option value="">All Statements</option>
-          {statements.map((s) => (
-            <option key={s.id} value={s.id}>
-              {formatStmtDate(s.statementDate)} ({s.periodStart} to {s.periodEnd})
-            </option>
-          ))}
-        </select>
-        <select value={cardholder} onChange={(e) => setCardholder(e.target.value)}>
-          <option value="">All Cardholders</option>
-          <option value="Max Blamauer">Max</option>
-          <option value="Kathryn Peddar">Kathryn</option>
-        </select>
+      <div className="dashboard-top-bar">
+        <div className="dashboard-controls">
+          <select
+            className="filter-pill"
+            value={selectedStatement}
+            onChange={(e) => onStatementChange(e.target.value)}
+          >
+            <option value="">All Statements</option>
+            {statements.map((s) => (
+              <option key={s.id} value={s.id}>
+                {formatStmtDate(s.statementDate)} ({s.periodStart} to {s.periodEnd})
+              </option>
+            ))}
+          </select>
+          <select
+            className="filter-pill"
+            value={cardholder}
+            onChange={(e) => onCardholderChange(e.target.value)}
+          >
+            <option value="">All Cardholders</option>
+            <option value="Max Blamauer">Max</option>
+            <option value="Kathryn Peddar">Kathryn</option>
+          </select>
+        </div>
       </div>
 
-      {byCategory.length === 0 ? (
+      {loading ? (
+        <div className="dashboard-skeleton">
+          <div className="stats-summary">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="spark-card skeleton-card">
+                <div className="skeleton-line skeleton-label" />
+                <div className="skeleton-line skeleton-value" />
+                <div className="skeleton-line skeleton-sub" />
+              </div>
+            ))}
+          </div>
+          <div className="charts-grid">
+            <div className="chart-card skeleton-card">
+              <div className="skeleton-line skeleton-label" />
+              <div className="skeleton-chart" />
+            </div>
+            <div className="chart-card skeleton-card">
+              <div className="skeleton-line skeleton-label" />
+              <div className="skeleton-chart" />
+            </div>
+          </div>
+          <div className="category-breakdown skeleton-card">
+            <div className="skeleton-line skeleton-label" />
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="skeleton-line skeleton-row" />
+            ))}
+          </div>
+        </div>
+      ) : byCategory.length === 0 ? (
         <div className="empty-state">
           <p>No data yet. Upload a statement to see your spending dashboard.</p>
         </div>
@@ -264,6 +314,15 @@ export function Dashboard({ onCategoryClick, theme, householdId }: Props) {
           </div>
 
           <div className="charts-grid">
+            {!selectedStatement && stmtTotals.length < 2 && (
+              <div className="chart-card">
+                <h3>Spending Trend</h3>
+                <div className="chart-placeholder">
+                  <p>Upload more statements to see your spending trend over time.</p>
+                </div>
+              </div>
+            )}
+
             {!selectedStatement && stmtTotals.length >= 2 && (
               <div className="chart-card">
                 <h3>Spending Trend</h3>
@@ -273,30 +332,27 @@ export function Dashboard({ onCategoryClick, theme, householdId }: Props) {
                       id: 'Spending',
                       data: stmtTotals.map((s) => ({ x: s.label, y: s.total })),
                     }]}
-                    margin={{ top: 10, right: 40, bottom: 30, left: 55 }}
+                    margin={{ top: 10, right: 20, bottom: 20, left: 55 }}
                     xScale={{ type: 'point' }}
                     yScale={{ type: 'linear', min: 0, max: 'auto' }}
-                    curve="monotoneX"
+                    curve="natural"
                     colors={[isDark ? '#8b7fd4' : '#7b6fc4']}
-                    lineWidth={2}
+                    lineWidth={2.5}
                     theme={nivoTheme}
                     axisLeft={{ format: (v) => `$${Number(v).toLocaleString()}`, tickSize: 0, tickPadding: 6, tickValues: 5 }}
-                    axisBottom={{ tickSize: 0, tickPadding: 8 }}
+                    axisBottom={null}
                     gridYValues={5}
                     enableGridX={false}
-                    enablePoints={true}
-                    pointSize={5}
-                    pointColor={isDark ? '#8b7fd4' : '#7b6fc4'}
-                    pointBorderWidth={0}
+                    enablePoints={false}
                     enableArea={true}
                     areaBaselineValue={0}
-                    areaOpacity={0}
+                    areaOpacity={1}
                     defs={[{
                       id: 'areaGradient',
                       type: 'linearGradient',
                       colors: [
-                        { offset: 0, color: isDark ? '#8b7fd4' : '#7b6fc4', opacity: 0.25 },
-                        { offset: 100, color: isDark ? '#8b7fd4' : '#7b6fc4', opacity: 0.0 },
+                        { offset: 0, color: isDark ? '#8b7fd4' : '#7b6fc4', opacity: 0.3 },
+                        { offset: 100, color: isDark ? '#8b7fd4' : '#7b6fc4', opacity: 0.02 },
                       ],
                     }]}
                     fill={[{ match: '*', id: 'areaGradient' }]}
@@ -322,12 +378,17 @@ export function Dashboard({ onCategoryClick, theme, householdId }: Props) {
                     }))}
                     keys={['amount']}
                     indexBy="day"
-                    margin={{ top: 10, right: 10, bottom: 30, left: 55 }}
+                    margin={{ top: 10, right: 10, bottom: 55, left: 55 }}
                     padding={0.35}
                     colors={[isDark ? '#8b7fd4' : '#7b6fc4']}
                     theme={nivoTheme}
                     axisLeft={{ format: (v) => `$${Number(v).toLocaleString()}`, tickSize: 0, tickPadding: 6, tickValues: 5 }}
-                    axisBottom={{ tickSize: 0, tickPadding: 6, tickRotation: -45 }}
+                    axisBottom={{
+                      tickSize: 0,
+                      tickPadding: 8,
+                      tickRotation: -45,
+                      tickValues: barTickValues,
+                    }}
                     enableGridX={false}
                     gridYValues={5}
                     enableLabel={false}
@@ -369,7 +430,7 @@ export function Dashboard({ onCategoryClick, theme, householdId }: Props) {
                   )}
                   onClick={(d) => {
                     const id = d.id as string;
-                    if (!id.startsWith('Other')) onCategoryClick(id);
+                    if (!id.startsWith('Other') && id !== '__grouped__') onCategoryClick(id);
                   }}
                 />
               </div>
@@ -378,7 +439,7 @@ export function Dashboard({ onCategoryClick, theme, householdId }: Props) {
                   <div
                     key={s.id}
                     className="pie-legend-item"
-                    onClick={() => { if (!s.id.startsWith('Other')) onCategoryClick(s.id); }}
+                    onClick={() => { if (!s.id.startsWith('Other') && s.id !== '__grouped__') onCategoryClick(s.id); }}
                   >
                     <span className="pie-legend-dot" style={{ background: s.color }} />
                     <span>{s.label}</span>

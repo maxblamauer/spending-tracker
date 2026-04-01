@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { collection, getDocs, doc, updateDoc, query, where, addDoc, writeBatch } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, query, where, addDoc, writeBatch, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
 import { CATEGORIES } from '../types';
 
 interface Transaction {
   id: string;
+  statementId: string;
   transDate: string;
   postingDate: string;
   description: string;
@@ -15,19 +16,37 @@ interface Transaction {
   confirmed: boolean;
 }
 
+interface StatementInfo {
+  id: string;
+  statementDate: string;
+  periodStart: string;
+  periodEnd: string;
+}
+
 interface Props {
   onUpdate: () => void;
   initialCategory?: string;
+  initialStatement?: string;
   householdId: string;
 }
 
-export function TransactionList({ onUpdate, initialCategory = '', householdId }: Props) {
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [filter, setFilter] = useState({ category: initialCategory, cardholder: '', confirmed: '' });
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editCategory, setEditCategory] = useState('');
+function formatStmtDate(dateStr: string): string {
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const [, m, d] = dateStr.split('-');
+  return `${months[parseInt(m) - 1]} ${d}`;
+}
 
+export function TransactionList({ onUpdate, initialCategory = '', initialStatement = '', householdId }: Props) {
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [filter, setFilter] = useState({
+    category: initialCategory,
+    cardholder: '',
+    confirmed: '',
+    statement: initialStatement,
+  });
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
+  const [statements, setStatements] = useState<StatementInfo[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const fetchTransactions = async () => {
     const snap = await getDocs(collection(db, 'households', householdId, 'transactions'));
@@ -37,8 +56,20 @@ export function TransactionList({ onUpdate, initialCategory = '', householdId }:
     setAllTransactions(all);
   };
 
+  const fetchStatements = async () => {
+    const snap = await getDocs(
+      query(collection(db, 'households', householdId, 'statements'), orderBy('statementDate', 'desc'))
+    );
+    setStatements(snap.docs.map((d) => ({ id: d.id, ...d.data() } as StatementInfo)));
+  };
+
   useEffect(() => {
-    fetchTransactions();
+    const load = async () => {
+      setLoading(true);
+      await Promise.all([fetchTransactions(), fetchStatements()]);
+      setLoading(false);
+    };
+    load();
   }, []);
 
   // Filter client-side to avoid composite index requirements
@@ -48,22 +79,20 @@ export function TransactionList({ onUpdate, initialCategory = '', householdId }:
     if (filter.cardholder) filtered = filtered.filter((t) => t.cardholder === filter.cardholder);
     if (filter.confirmed === 'true') filtered = filtered.filter((t) => t.confirmed);
     if (filter.confirmed === 'false') filtered = filtered.filter((t) => !t.confirmed);
+    if (filter.statement) filtered = filtered.filter((t) => t.statementId === filter.statement);
     setTransactions(filtered);
   }, [allTransactions, filter]);
 
-  const updateCategory = async (id: string, description: string) => {
+  const updateCategory = async (id: string, description: string, newCategory: string) => {
     const pattern = extractMerchantPattern(description);
     const txnRef = doc(db, 'households', householdId, 'transactions', id);
-    await updateDoc(txnRef, { category: editCategory, confirmed: true });
+    await updateDoc(txnRef, { category: newCategory, confirmed: true });
 
-    // Save the mapping
     if (pattern) {
-      await saveMerchantMapping(pattern, editCategory);
-      // Update other unconfirmed transactions with same pattern
-      await applyMappingToUnconfirmed(pattern, editCategory);
+      await saveMerchantMapping(pattern, newCategory);
+      await applyMappingToUnconfirmed(pattern, newCategory);
     }
 
-    setEditingId(null);
     fetchTransactions();
     onUpdate();
   };
@@ -133,39 +162,71 @@ export function TransactionList({ onUpdate, initialCategory = '', householdId }:
     .filter((t) => !t.isCredit)
     .reduce((sum, t) => sum + t.amount, 0);
   const creditAmount = transactions
-    .filter((t) => t.isCredit)
+    .filter((t) => t.isCredit && t.category !== 'Payment')
     .reduce((sum, t) => sum + t.amount, 0);
+
+  const activeFilterCount = [filter.category, filter.cardholder, filter.confirmed, filter.statement].filter(Boolean).length;
 
   return (
     <div className="transactions-page">
-      {filter.category && (
-        <div className="category-filter-banner">
-          <button className="btn btn-sm" onClick={() => setFilter({ ...filter, category: '' })}>
-            &larr; All Categories
-          </button>
-          <span className="category-filter-title">{filter.category}</span>
-          <span className="category-filter-summary">
-            {transactions.filter((t) => !t.isCredit).length} charges totalling ${totalAmount.toFixed(2)}
-            {creditAmount > 0 && <> &middot; ${creditAmount.toFixed(2)} in credits</>}
-          </span>
+      <div className="transactions-toolbar">
+        <div className="txn-stats">
+          <div className="spark-card has-tooltip">
+            <div className="spark-card-label">Charges</div>
+            <div className="spark-card-value">{transactions.filter((t) => !t.isCredit).length}</div>
+            <span className="tooltip">Number of transactions</span>
+          </div>
+          <div className="spark-card has-tooltip">
+            <div className="spark-card-label">Total Spending</div>
+            <div className="spark-card-value">{totalAmount.toLocaleString('en-CA', { style: 'currency', currency: 'CAD' })}</div>
+            <span className="tooltip">Total spending amount</span>
+          </div>
+          <div className="spark-card has-tooltip">
+            <div className="spark-card-label">Credits</div>
+            <div className="spark-card-value" style={{ color: creditAmount > 0 ? 'var(--green)' : undefined }}>
+              {creditAmount > 0 ? `-${creditAmount.toLocaleString('en-CA', { style: 'currency', currency: 'CAD' })}` : '$0.00'}
+            </div>
+            <span className="tooltip">Refunds and credits</span>
+          </div>
         </div>
-      )}
-      <div className="transactions-header">
-        <h2>{filter.category ? '' : 'Transactions'}</h2>
         <div className="filters">
-          <select value={filter.category} onChange={(e) => setFilter({ ...filter, category: e.target.value })}>
+          <select
+            className="filter-pill"
+            value={filter.statement}
+            onChange={(e) => setFilter({ ...filter, statement: e.target.value })}
+          >
+            <option value="">All Statements</option>
+            {statements.map((s) => (
+              <option key={s.id} value={s.id}>
+                {formatStmtDate(s.statementDate)} ({s.periodStart} to {s.periodEnd})
+              </option>
+            ))}
+          </select>
+          <select
+            className="filter-pill"
+            value={filter.category}
+            onChange={(e) => setFilter({ ...filter, category: e.target.value })}
+          >
             <option value="">All Categories</option>
             {CATEGORIES.map((c) => (
               <option key={c} value={c}>{c}</option>
             ))}
           </select>
-          <select value={filter.cardholder} onChange={(e) => setFilter({ ...filter, cardholder: e.target.value })}>
+          <select
+            className="filter-pill"
+            value={filter.cardholder}
+            onChange={(e) => setFilter({ ...filter, cardholder: e.target.value })}
+          >
             <option value="">All Cardholders</option>
             <option value="Max Blamauer">Max</option>
             <option value="Kathryn Peddar">Kathryn</option>
           </select>
-          <select value={filter.confirmed} onChange={(e) => setFilter({ ...filter, confirmed: e.target.value })}>
-            <option value="">All</option>
+          <select
+            className="filter-pill"
+            value={filter.confirmed}
+            onChange={(e) => setFilter({ ...filter, confirmed: e.target.value })}
+          >
+            <option value="">All Status</option>
             <option value="false">Unconfirmed</option>
             <option value="true">Confirmed</option>
           </select>
@@ -177,6 +238,22 @@ export function TransactionList({ onUpdate, initialCategory = '', householdId }:
         </div>
       </div>
 
+      {loading ? (
+        <div className="table-wrapper">
+          <div className="table-skeleton">
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (
+              <div key={i} className="table-skeleton-row">
+                <div className="skeleton-line" style={{ width: '80px', height: '14px' }} />
+                <div className="skeleton-line" style={{ flex: 1, height: '14px' }} />
+                <div className="skeleton-line" style={{ width: '60px', height: '14px' }} />
+                <div className="skeleton-line" style={{ width: '60px', height: '14px' }} />
+                <div className="skeleton-line" style={{ width: '100px', height: '22px', borderRadius: '12px' }} />
+                <div className="skeleton-line" style={{ width: '70px', height: '22px', borderRadius: '12px' }} />
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
       <div className="table-wrapper">
         <table className="transactions-table">
           <thead>
@@ -184,10 +261,9 @@ export function TransactionList({ onUpdate, initialCategory = '', householdId }:
               <th>Date</th>
               <th>Description</th>
               <th>Cardholder</th>
-              <th>Amount</th>
+              <th style={{ textAlign: 'center' }}>Amount</th>
               <th>Category</th>
               <th>Status</th>
-              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -202,56 +278,37 @@ export function TransactionList({ onUpdate, initialCategory = '', householdId }:
                   {txn.isCredit ? '-' : ''}${txn.amount.toFixed(2)}
                 </td>
                 <td>
-                  {editingId === txn.id ? (
+                  <span className="category-cell-wrapper">
+                    <span className={`category-badge clickable-badge cat-${txn.category.toLowerCase().replace(/[^a-z]/g, '-')}`}>
+                      {txn.category}
+                    </span>
                     <select
-                      value={editCategory}
-                      onChange={(e) => setEditCategory(e.target.value)}
-                      autoFocus
+                      className="category-overlay-select"
+                      value=""
+                      onChange={(e) => {
+                        const newVal = e.target.value;
+                        if (newVal && newVal !== txn.category) {
+                          updateCategory(txn.id, txn.description, newVal);
+                        }
+                      }}
                     >
+                      <option value="" disabled>Change category...</option>
                       {CATEGORIES.map((c) => (
                         <option key={c} value={c}>{c}</option>
                       ))}
                     </select>
-                  ) : (
-                    <span className={`category-badge cat-${txn.category.toLowerCase().replace(/[^a-z]/g, '-')}`}>
-                      {txn.category}
-                    </span>
-                  )}
+                  </span>
                 </td>
                 <td>
                   {txn.confirmed ? (
                     <span className="confirmed-badge">Confirmed</span>
                   ) : (
-                    <span className="unconfirmed-badge">Auto</span>
-                  )}
-                </td>
-                <td className="actions-cell">
-                  {editingId === txn.id ? (
-                    <>
-                      <button className="btn btn-xs btn-save" onClick={() => updateCategory(txn.id, txn.description)}>
-                        Save
-                      </button>
-                      <button className="btn btn-xs" onClick={() => setEditingId(null)}>
-                        Cancel
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <button
-                        className="btn btn-xs"
-                        onClick={() => {
-                          setEditingId(txn.id);
-                          setEditCategory(txn.category);
-                        }}
-                      >
-                        Edit
-                      </button>
-                      {!txn.confirmed && (
-                        <button className="btn btn-xs btn-confirm" onClick={() => confirmCategory(txn.id, txn.description)}>
-                          Confirm
-                        </button>
-                      )}
-                    </>
+                    <span
+                      className="unconfirmed-badge clickable-badge"
+                      onClick={() => confirmCategory(txn.id, txn.description)}
+                    >
+                      Auto
+                    </span>
                   )}
                 </td>
               </tr>
@@ -259,7 +316,8 @@ export function TransactionList({ onUpdate, initialCategory = '', householdId }:
           </tbody>
         </table>
       </div>
-      {transactions.length === 0 && (
+      )}
+      {!loading && transactions.length === 0 && (
         <p className="empty-state">No transactions found. Upload a statement to get started.</p>
       )}
     </div>
