@@ -1,8 +1,6 @@
-import { signInWithPopup, signInWithRedirect } from 'firebase/auth';
+import { signInWithPopup } from 'firebase/auth';
 import { auth, googleProvider } from '../firebase';
 import { useState } from 'react';
-
-const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
 export function Login() {
   const [error, setError] = useState('');
@@ -12,11 +10,7 @@ export function Login() {
     setLoading(true);
     setError('');
     try {
-      if (isMobile) {
-        await signInWithRedirect(auth, googleProvider);
-      } else {
-        await signInWithPopup(auth, googleProvider);
-      }
+      await signInWithPopup(auth, googleProvider);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Sign-in failed';
       setError(message);
