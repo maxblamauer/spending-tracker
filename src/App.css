@@ -646,7 +646,7 @@ tr:hover {
 /* CSS tooltip */
 .has-tooltip {
   position: relative;
-  cursor: help;
+  cursor: pointer;
 }
 
 .has-tooltip .tooltip {
