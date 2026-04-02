@@ -1,3 +1,6 @@
+import stevieTrendPositive from '../../assets/stevie-logo-mark-lg.png';
+import stevieTrendNegative from '../../assets/stevie-logo-mark-trend-negative.png';
+
 interface SparkCardProps {
   label: string;
   value: string;
@@ -22,25 +25,63 @@ export function SparkCard({
     ? (changeIsGood ? 'var(--green)' : 'var(--red)')
     : undefined;
 
+  const pctLabel =
+    change !== undefined
+      ? changeIsGood
+        ? `${Math.abs(change).toFixed(1)}%`
+        : `-${Math.abs(change).toFixed(1)}%`
+      : '';
+
+  const pctBlock =
+    change !== undefined ? (
+      <div className="spark-card-change-pct" style={{ color: changeColor }}>
+        {changeTooltip ? (
+          <span className="has-tooltip">
+            <span>{pctLabel}</span>
+            <span className="tooltip">{changeTooltip}</span>
+          </span>
+        ) : (
+          <span>{pctLabel}</span>
+        )}
+      </div>
+    ) : null;
+
+  const trendImage =
+    change !== undefined ? (
+      <div
+        className={`spark-card-trend-side ${changeIsGood ? 'spark-card-trend-side--good' : 'spark-card-trend-side--bad'}`}
+      >
+        <img
+          src={changeIsGood ? stevieTrendPositive : stevieTrendNegative}
+          alt=""
+          className="spark-card-trend-mark"
+          aria-hidden
+        />
+      </div>
+    ) : null;
+
   return (
     <div className="spark-card">
       <div className="spark-card-label">{label}</div>
-      <div className="spark-card-value" style={valueColor ? { color: valueColor } : undefined}>{value}</div>
-      {change !== undefined && (
-        <div className="spark-card-change" style={{ color: changeColor }}>
-          {changeTooltip ? (
-            <span className="has-tooltip">
-              {change < 0 ? '\u2193' : '\u2191'} {Math.abs(change).toFixed(1)}%
-              <span className="tooltip">{changeTooltip}</span>
-            </span>
-          ) : (
-            <span>
-              {change < 0 ? '\u2193' : '\u2191'} {Math.abs(change).toFixed(1)}%
-            </span>
-          )}
+      {change !== undefined ? (
+        <div className="spark-card-main-row">
+          <div className="spark-card-main-left">
+            <div className="spark-card-value" style={valueColor ? { color: valueColor } : undefined}>
+              {value}
+            </div>
+            {pctBlock}
+            {subtitle && <div className="spark-card-subtitle">{subtitle}</div>}
+          </div>
+          {trendImage}
         </div>
+      ) : (
+        <>
+          <div className="spark-card-value" style={valueColor ? { color: valueColor } : undefined}>
+            {value}
+          </div>
+          {subtitle && <div className="spark-card-subtitle">{subtitle}</div>}
+        </>
       )}
-      {subtitle && <div className="spark-card-subtitle">{subtitle}</div>}
     </div>
   );
 }

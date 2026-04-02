@@ -246,7 +246,7 @@ export function TransactionList({
 
   return (
     <div className="transactions-page">
-    <div className="filters transactions-filters-top">
+      <div className="filters transactions-filters-top">
         <FilterSelect
           value={filter.statement}
           onChange={(value) => setFilter({ ...filter, statement: value })}
@@ -287,11 +287,6 @@ export function TransactionList({
             { value: 'true', label: 'Confirmed' },
           ]}
         />
-        {unconfirmedCount > 0 && (
-          <button className="btn btn-sm" onClick={confirmAll}>
-            Confirm All ({unconfirmedCount})
-          </button>
-        )}
       </div>
       <div className="transactions-toolbar">
         <div className="stats-summary">
@@ -325,6 +320,23 @@ export function TransactionList({
           />
         </div>
       </div>
+
+      {!loading && unconfirmedCount > 0 && (
+        <div
+          className="transactions-pending-bar transactions-pending-bar--above-table"
+          role="region"
+          aria-label="Unconfirmed transactions"
+        >
+          <p className="transactions-pending-text">
+            <span className="transactions-pending-count">{unconfirmedCount}</span>
+            {' '}
+            {unconfirmedCount === 1 ? 'row is' : 'rows are'} still unconfirmed.
+          </p>
+          <button type="button" className="btn btn-sm btn-confirm transactions-confirm-all-btn" onClick={confirmAll}>
+            Confirm all
+          </button>
+        </div>
+      )}
 
       {loading ? (
         <div className="table-wrapper">
@@ -398,7 +410,7 @@ export function TransactionList({
                       className="unconfirmed-badge clickable-badge"
                       onClick={() => confirmCategory(txn.id, txn.description)}
                     >
-                      Auto
+                      Unconfirmed
                     </span>
                   )}
                 </td>

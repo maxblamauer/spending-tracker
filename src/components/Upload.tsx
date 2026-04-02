@@ -7,7 +7,8 @@ import { reconcileBillingPeriod } from '../lib/statementPeriod';
 import type { CategoryMapping } from '../lib/categorize';
 
 interface Props {
-  onUploaded: () => void;
+  /** Called after a successful upload with the new statement document id (for deep-linking Transactions). */
+  onUploaded: (newStatementId?: string) => void;
   householdId: string;
 }
 
@@ -114,7 +115,7 @@ export function Upload({ onUploaded, householdId }: Props) {
         setMessage(`${parsed.transactions.length} transactions imported`);
         setTimeout(async () => {
           await fetchStatements();
-          onUploaded();
+          onUploaded(stmtRef.id);
         }, 800);
       } catch (err) {
         console.error('Parse error:', err);

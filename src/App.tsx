@@ -245,7 +245,7 @@ function App() {
         )}
         {activeTab === 'transactions' && (
           <TransactionList
-            key={`${refreshKey}-${categoryFilter}`}
+            key={`${householdId}-${categoryFilter || 'all'}`}
             onUpdate={refresh}
             initialCategory={categoryFilter}
             initialStatement={selectedStatement}
@@ -253,7 +253,19 @@ function App() {
             householdId={householdId}
           />
         )}
-        {activeTab === 'upload' && <Upload onUploaded={() => { refresh(); setActiveTab('transactions'); }} householdId={householdId} />}
+        {activeTab === 'upload' && (
+          <Upload
+            onUploaded={(newStatementId) => {
+              refresh();
+              if (newStatementId) {
+                setSelectedStatement(newStatementId);
+                setCategoryFilter('');
+              }
+              setActiveTab('transactions');
+            }}
+            householdId={householdId}
+          />
+        )}
         {activeTab === 'mappings' && <MappingsManager key={refreshKey} householdId={householdId} />}
       </main>
     </div>

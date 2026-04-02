@@ -329,6 +329,41 @@ body {
   margin-bottom: 12px;
 }
 
+.transactions-pending-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  padding: 10px 14px;
+  background: color-mix(in srgb, var(--yellow) 10%, var(--bg-card));
+  border: 1px solid color-mix(in srgb, var(--yellow) 28%, var(--border));
+  border-radius: var(--radius);
+}
+
+.transactions-pending-text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text-muted);
+  flex: 1;
+  min-width: min(100%, 200px);
+}
+
+.transactions-pending-count {
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.transactions-confirm-all-btn {
+  flex-shrink: 0;
+}
+
+.transactions-pending-bar--above-table {
+  margin-bottom: 12px;
+}
+
 select {
   padding: 8px 28px 8px 12px;
   border-radius: var(--radius);
@@ -530,6 +565,12 @@ tr:hover {
   color: var(--on-accent);
 }
 
+.btn-confirm:hover:not(:disabled) {
+  background: var(--green);
+  border-color: var(--green);
+  filter: brightness(1.08);
+}
+
 .btn-danger {
   color: var(--red);
   border-color: var(--red);
@@ -722,10 +763,97 @@ tr:hover {
   font-weight: 700;
 }
 
-.spark-card-change {
+/*
+ * Text takes flexible width; mascot sits in a fixed-width column at the card’s right edge
+ * so number length changes don’t move the logo (centering in a shrinking 1fr column used to).
+ */
+.spark-card-main-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 80px;
+  gap: 12px 16px;
+  align-items: start;
+  margin-top: 0;
+}
+
+.spark-card-main-left {
+  min-width: 0;
+}
+
+.spark-card-main-row .spark-card-subtitle {
+  margin-top: 2px;
+}
+
+/* Percentage under the dollar amount (original stat-card position) */
+.spark-card-change-pct {
   font-size: 14px;
   font-weight: 600;
   margin-top: 2px;
+  line-height: 1.25;
+}
+
+/*
+ * Trend mascots: fixed px box + absolute img so both PNGs get identical geometry.
+ * clip-path + overflow crops scaled art. Centered in fixed right column.
+ */
+.spark-card-trend-side {
+  width: 80px;
+  height: 80px;
+  aspect-ratio: 1;
+  position: relative;
+  border-radius: 50%;
+  overflow: hidden;
+  clip-path: circle(50% at 50% 50%);
+  justify-self: center;
+  align-self: center;
+  line-height: 0;
+  border: 2px solid transparent;
+  box-sizing: border-box;
+}
+
+.spark-card-trend-side--good {
+  border-color: var(--green);
+}
+
+.spark-card-trend-side--bad {
+  border-color: var(--red);
+}
+
+.spark-card-trend-mark {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 80px;
+  height: 80px;
+  margin: 0;
+  padding: 0;
+  object-fit: cover;
+  object-position: center center;
+  display: block;
+  border: none;
+  outline: none;
+  box-shadow: none;
+  box-sizing: border-box;
+  transform: translate(-50%, -50%) scale(1.26);
+  transform-origin: center center;
+}
+
+.txn-stats .spark-card-main-row {
+  grid-template-columns: minmax(0, 1fr) 68px;
+}
+
+.txn-stats .spark-card-trend-side {
+  width: 68px;
+  height: 68px;
+}
+
+.txn-stats .spark-card-trend-mark {
+  width: 68px;
+  height: 68px;
+  transform: translate(-50%, -50%) scale(1.26);
+}
+
+.txn-stats .spark-card-change-pct {
+  font-size: 13px;
 }
 
 .spark-card-subtitle {
@@ -950,8 +1078,13 @@ tr:hover {
     min-width: 0;
   }
 
-  .transactions-filters-top .btn {
-    grid-column: 1 / -1;
+  .transactions-pending-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .transactions-confirm-all-btn {
+    width: 100%;
   }
 
   .transactions-title-group {
