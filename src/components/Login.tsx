@@ -28,7 +28,7 @@ export function Login() {
         <div className="login-card">
           <div className="login-card-body">
             <div className="login-card-header">
-              <h1 className="sr-only">College fund savings</h1>
+              <h1 className="sr-only">Stevies College Fund</h1>
               <div className="login-logo-wrap">
                 <img
                   src={stevieLogoWithText}
@@ -38,7 +38,7 @@ export function Login() {
                   height={256}
                 />
               </div>
-              <p className="login-subtitle">Log in to contribute to Stevie&apos;s college fund.</p>
+              <p className="login-subtitle">Log in to contribute to Stevies College Fund.</p>
             </div>
 
             <div className="login-actions">

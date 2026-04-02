@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import type { User } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
@@ -10,8 +10,10 @@ import { Dashboard } from './components/Dashboard';
 import { MappingsManager } from './components/MappingsManager';
 import { Login } from './components/Login';
 import { HouseholdSetup } from './components/HouseholdSetup';
-import stevieLogoMark from './assets/stevie-logo-mark.png';
+import stevieLogoMarkSm from './assets/stevie-logo-mark-sm.png';
 import './App.css';
+
+const APP_BRAND_NAME = 'Stevies College Fund';
 
 type Tab = 'dashboard' | 'transactions' | 'upload' | 'mappings';
 
@@ -19,7 +21,6 @@ function App() {
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [householdId, setHouseholdId] = useState<string | null>(null);
-  const [householdName, setHouseholdName] = useState('');
   const [inviteCode, setInviteCode] = useState('');
   const [householdLoading, setHouseholdLoading] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -30,9 +31,15 @@ function App() {
   const [selectedStatement, setSelectedStatement] = useState('');
   const [cardholder, setCardholder] = useState('');
   const { theme, setTheme } = useTheme();
+  const authUidRef = useRef<string | null>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      const uid = firebaseUser?.uid ?? null;
+      if (authUidRef.current !== uid) {
+        setMenuOpen(false);
+        authUidRef.current = uid;
+      }
       setUser(firebaseUser);
       setAuthLoading(false);
       if (!firebaseUser) {
@@ -62,7 +69,6 @@ function App() {
         if (householdDoc.exists()) {
           const hData = householdDoc.data();
           setInviteCode(hData.inviteCode || '');
-          setHouseholdName(hData.name || '');
         }
       } else {
         setHouseholdId(null);
@@ -114,9 +120,9 @@ function App() {
       <header className="app-header">
         <div className="app-header-brand">
           <div className="stevie-logo-clip stevie-logo-clip-sm" aria-hidden>
-            <img src={stevieLogoMark} alt="" />
+            <img src={stevieLogoMarkSm} alt="" />
           </div>
-          <h1>{householdName || 'College fund'}</h1>
+          <h1>{APP_BRAND_NAME}</h1>
         </div>
         <nav className="tabs">
           {(['dashboard', 'transactions', 'upload', 'mappings'] as Tab[]).map((tab) => (
@@ -144,16 +150,14 @@ function App() {
               <>
                 <div className="user-menu-backdrop" onClick={() => setMenuOpen(false)} />
                 <div className="user-menu">
-                  {householdName && (
-                    <div className="user-menu-header">
-                      <div className="user-menu-household-row">
-                        <div className="stevie-logo-clip stevie-logo-clip-xs" aria-hidden>
-                          <img src={stevieLogoMark} alt="" />
-                        </div>
-                        <span className="user-menu-household-name">{householdName}</span>
+                  <div className="user-menu-header">
+                    <div className="user-menu-household-row">
+                      <div className="stevie-logo-clip stevie-logo-clip-xs" aria-hidden>
+                        <img src={stevieLogoMarkSm} alt="" />
                       </div>
+                      <span className="user-menu-household-name">{APP_BRAND_NAME}</span>
                     </div>
-                  )}
+                  </div>
                   {inviteCode && (
                     <button
                       className="user-menu-item user-menu-action"

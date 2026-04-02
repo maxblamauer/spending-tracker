@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { signOut } from 'firebase/auth';
 import { doc, setDoc, addDoc, collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
 import { auth, db } from '../firebase';
-import stevieLogoMark from '../assets/stevie-logo-mark.png';
+import stevieLogoMarkLg from '../assets/stevie-logo-mark-lg.png';
 import { ThemeToggleButton } from './ui/ThemeToggleButton';
 
 interface Props {
@@ -125,7 +125,7 @@ export function HouseholdSetup({ uid, userName, userEmail, onComplete }: Props) 
             <div className="household-card-header">
               <div className="household-logo-wrap">
                 <img
-                  src={stevieLogoMark}
+                  src={stevieLogoMarkLg}
                   alt=""
                   className="household-brand-logo"
                   width={256}

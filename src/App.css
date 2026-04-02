@@ -97,7 +97,7 @@ body {
   white-space: nowrap;
 }
 
-/* Mark-only asset (no text): slight zoom hides square matte; bias down to lose a thin top ring */
+/* stevie-logo-mark-sm.png: pre-masked circular; light scale for crisp edges */
 .stevie-logo-clip {
   position: relative;
   overflow: hidden;
@@ -121,9 +121,9 @@ body {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: center 52%;
-  transform: scale(1.12);
-  transform-origin: 50% 54%;
+  object-position: center center;
+  transform: scale(1.04);
+  transform-origin: center center;
   display: block;
 }
 
@@ -767,8 +767,8 @@ tr:hover {
     display: grid;
     grid-template-columns: 1fr auto;
     grid-template-rows: auto auto;
-    padding: 12px 16px;
-    gap: 10px;
+    padding: 8px 12px;
+    gap: 8px;
   }
 
   .app-header-brand {
@@ -776,21 +776,34 @@ tr:hover {
     grid-row: 1;
     align-self: center;
     min-width: 0;
+    gap: 8px;
   }
 
   .app-header-brand h1 {
-    font-size: 16px;
+    font-size: 14px;
   }
 
   .stevie-logo-clip-sm {
-    width: 32px;
-    height: 32px;
+    width: 28px;
+    height: 28px;
   }
 
   .header-right {
     grid-column: 2;
     grid-row: 1;
     align-self: center;
+  }
+
+  .user-menu-btn {
+    padding: 4px 10px;
+    min-height: 32px;
+    font-size: 13px;
+    gap: 5px;
+  }
+
+  .user-menu-btn svg {
+    width: 10px;
+    height: 10px;
   }
 
   .tabs {
@@ -801,8 +814,8 @@ tr:hover {
   }
 
   .tab {
-    padding: 6px 12px;
-    font-size: 13px;
+    padding: 5px 10px;
+    font-size: 12px;
     flex-shrink: 0;
   }
 
@@ -1077,7 +1090,34 @@ tr:hover {
 
   .user-menu {
     right: 0;
-    width: min(300px, calc(100vw - 20px));
+    top: calc(100% + 4px);
+    min-width: 200px;
+    width: min(280px, calc(100vw - 16px));
+    padding: 6px 0;
+  }
+
+  .user-menu-header {
+    padding: 8px 12px;
+  }
+
+  .user-menu-household-name {
+    font-size: 13px;
+  }
+
+  .user-menu-item {
+    padding: 8px 12px;
+    font-size: 12px;
+    gap: 8px;
+  }
+
+  .user-menu-item-icon svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  .stevie-logo-clip-xs {
+    width: 20px;
+    height: 20px;
   }
 
   .household-layout {
@@ -1750,12 +1790,13 @@ tr:hover {
     0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 
+/* Uses stevie-logo-mark-lg.png (~640px); minimal scale keeps edges sharp */
 .household-brand-logo {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: center 50%;
-  transform: scale(1.08);
+  object-position: center center;
+  transform: scale(1.02);
   transform-origin: center center;
   display: block;
 }
