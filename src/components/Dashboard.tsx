@@ -6,6 +6,7 @@ import { collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
 import { SparkCard } from './ui/SparkCard';
 import { FilterSelect } from './ui/FilterSelect';
+import { billingPeriodInclusiveDays, reconcileBillingPeriod } from '../lib/statementPeriod';
 
 const CATEGORY_COLORS: Record<string, string> = {
   'Groceries':            '#4da36a',
@@ -150,7 +151,40 @@ export function Dashboard({ onCategoryClick, theme, householdId, selectedStateme
       : undefined;
   const avgSpending = stmtTotals.length > 0 ? stmtTotals.reduce((s, t) => s + t.total, 0) / stmtTotals.length : 0;
 
-  // Daily spending for single statement view
+  const focusIdx = (() => {
+    if (stmtTotals.length === 0) return -1;
+    if (selectedStatement) {
+      const i = stmtTotals.findIndex((s) => s.id === selectedStatement);
+      return i >= 0 ? i : stmtTotals.length - 1;
+    }
+    return stmtTotals.length - 1;
+  })();
+
+  const focusTotal = focusIdx >= 0 ? stmtTotals[focusIdx].total : 0;
+  const focusStmt = focusIdx >= 0 ? sortedStmts[focusIdx] : null;
+  const focusPeriodDays = focusStmt
+    ? billingPeriodInclusiveDays(focusStmt.periodStart, focusStmt.periodEnd)
+    : 1;
+
+  const stmtsWithPeriod = sortedStmts.filter((s) => s.periodStart && s.periodEnd);
+  const allStatementsSpanDays =
+    stmtsWithPeriod.length === 0
+      ? 1
+      : (() => {
+          const reconciled = stmtsWithPeriod.map((s) => reconcileBillingPeriod(s.periodStart, s.periodEnd));
+          const minStart = reconciled.reduce((min, r) => (r.periodStart < min ? r.periodStart : min), reconciled[0].periodStart);
+          const maxEnd = reconciled.reduce((max, r) => (r.periodEnd > max ? r.periodEnd : max), reconciled[0].periodEnd);
+          return billingPeriodInclusiveDays(minStart, maxEnd);
+        })();
+
+  const dailyAverageInPeriod = selectedStatement
+    ? focusIdx >= 0
+      ? focusTotal / focusPeriodDays
+      : 0
+    : sortedStmts.length > 0
+      ? totalSpending / allStatementsSpanDays
+      : 0;
+
   const dailySpending = selectedStatement
     ? Object.values(
         filteredTxns
@@ -208,10 +242,13 @@ export function Dashboard({ onCategoryClick, theme, householdId, selectedStateme
             onChange={onStatementChange}
             options={[
               { value: '', label: 'All Statements' },
-              ...statements.map((s) => ({
-                value: s.id,
-                label: `${formatStmtDate(s.statementDate)} (${s.periodStart} to ${s.periodEnd})`,
-              })),
+              ...statements.map((s) => {
+                const r = reconcileBillingPeriod(s.periodStart, s.periodEnd);
+                return {
+                  value: s.id,
+                  label: `${formatStmtDate(s.statementDate)} (${r.periodStart} to ${r.periodEnd})`,
+                };
+              }),
             ]}
           />
           <FilterSelect
@@ -262,12 +299,14 @@ export function Dashboard({ onCategoryClick, theme, householdId, selectedStateme
         <>
           <div className="stats-summary">
             <SparkCard
-              label={selectedStatement ? 'Statement Spending' : 'Total Spending'}
-              value={fmtMoney(totalSpending)}
-            />
-            <SparkCard
-              label="Latest Statement"
-              value={stmtTotals.length > 0 ? fmtMoney(latestTotal) : '--'}
+              label={selectedStatement ? 'Statement period' : 'Total spending'}
+              value={
+                selectedStatement
+                  ? focusIdx >= 0
+                    ? fmtMoney(focusTotal)
+                    : '--'
+                  : fmtMoney(totalSpending)
+              }
               change={selectedStatement ? selectedSpendingChange : (stmtTotals.length > 1 ? spendingChange : undefined)}
               invertColor
             />
@@ -277,7 +316,22 @@ export function Dashboard({ onCategoryClick, theme, householdId, selectedStateme
               subtitle={`across ${statements.length} statement${statements.length !== 1 ? 's' : ''}`}
             />
             <SparkCard
-              label="Top Category"
+              label="Daily average"
+              value={
+                sortedStmts.length > 0
+                  ? fmtMoney(Math.round(dailyAverageInPeriod * 100) / 100)
+                  : '--'
+              }
+              subtitle={
+                selectedStatement && focusStmt
+                  ? `${focusPeriodDays} day${focusPeriodDays !== 1 ? 's' : ''} in period`
+                  : sortedStmts.length > 0
+                    ? `${allStatementsSpanDays} day${allStatementsSpanDays !== 1 ? 's' : ''} across all statements`
+                    : undefined
+              }
+            />
+            <SparkCard
+              label="Top category"
               value={byCategory[0]?.category || '--'}
               subtitle={byCategory[0] ? fmtMoney(byCategory[0].total) : undefined}
             />

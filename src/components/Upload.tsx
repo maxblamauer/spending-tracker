@@ -3,6 +3,7 @@ import { useDropzone } from 'react-dropzone';
 import { collection, addDoc, getDocs, deleteDoc, doc, query, where, writeBatch, Timestamp, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
 import { parseStatement } from '../lib/parser';
+import { reconcileBillingPeriod } from '../lib/statementPeriod';
 import type { CategoryMapping } from '../lib/categorize';
 
 interface Props {
@@ -204,15 +205,18 @@ export function Upload({ onUploaded, householdId }: Props) {
               <tr><th>Date</th><th>Period</th><th>Balance</th><th>File</th><th></th></tr>
             </thead>
             <tbody>
-              {statements.map((s) => (
-                <tr key={s.id}>
-                  <td>{formatStmtDate(s.statementDate)}</td>
-                  <td>{s.periodStart} to {s.periodEnd}</td>
-                  <td>{fmtMoney(s.totalBalance)}</td>
-                  <td>{s.filename}</td>
-                  <td><button className="btn btn-xs btn-danger" onClick={() => deleteStatement(s.id)}>Delete</button></td>
-                </tr>
-              ))}
+              {statements.map((s) => {
+                const r = reconcileBillingPeriod(s.periodStart, s.periodEnd);
+                return (
+                  <tr key={s.id}>
+                    <td>{formatStmtDate(s.statementDate)}</td>
+                    <td>{r.periodStart} to {r.periodEnd}</td>
+                    <td>{fmtMoney(s.totalBalance)}</td>
+                    <td>{s.filename}</td>
+                    <td><button className="btn btn-xs btn-danger" onClick={() => deleteStatement(s.id)}>Delete</button></td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}

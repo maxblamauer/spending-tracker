@@ -36,6 +36,7 @@
   --text: #2c2c2c;
   --text-muted: #5f6673;
   --border: #c7c4bd;
+  /* Single UI accent in light mode: buttons (.btn-save), focus rings, active toggles, dropzone tint */
   --accent: #5b7fa8;
   --accent-hover: #4a6d94;
   --green: #5b9a6f;
@@ -79,10 +80,51 @@ body {
   gap: 16px;
 }
 
-.app-header h1 {
+.app-header-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex-shrink: 0;
+}
+
+.app-header-brand h1 {
   font-size: 20px;
   font-weight: 700;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Mark-only asset (no text): slight zoom hides square matte; bias down to lose a thin top ring */
+.stevie-logo-clip {
+  position: relative;
+  overflow: hidden;
+  border-radius: 50%;
   flex-shrink: 0;
+}
+
+.stevie-logo-clip-sm {
+  width: 36px;
+  height: 36px;
+}
+
+.stevie-logo-clip-xs {
+  width: 22px;
+  height: 22px;
+}
+
+.stevie-logo-clip img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 52%;
+  transform: scale(1.12);
+  transform-origin: 50% 54%;
+  display: block;
 }
 
 .header-right {
@@ -137,6 +179,20 @@ body {
   color: var(--text);
 }
 
+.auth-screen-theme-toggle {
+  position: fixed;
+  top: max(16px, env(safe-area-inset-top));
+  right: max(16px, env(safe-area-inset-right));
+  z-index: 200;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border-radius: 999px;
+}
+
 .app-main {
   max-width: 1200px;
   margin: 0 auto;
@@ -170,7 +226,7 @@ body {
 
 .dropzone.active, .dropzone:hover {
   border-color: var(--accent);
-  background: rgba(59, 130, 246, 0.05);
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg-card));
 }
 
 .dropzone.success {
@@ -448,6 +504,11 @@ tr:hover {
   color: var(--on-accent);
 }
 
+.btn-save:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
 .btn-confirm {
   background: var(--green);
   border-color: var(--green);
@@ -710,11 +771,20 @@ tr:hover {
     gap: 10px;
   }
 
-  .app-header h1 {
-    font-size: 16px;
+  .app-header-brand {
     grid-column: 1;
     grid-row: 1;
     align-self: center;
+    min-width: 0;
+  }
+
+  .app-header-brand h1 {
+    font-size: 16px;
+  }
+
+  .stevie-logo-clip-sm {
+    width: 32px;
+    height: 32px;
   }
 
   .header-right {
@@ -982,12 +1052,18 @@ tr:hover {
   }
 
   /* Login / Household setup */
-  .login-card {
-    padding: 26px 20px;
+  .login-card-body {
+    padding: 32px 22px 26px;
   }
 
-  .login-card h1 {
-    font-size: 25px;
+  .login-card-footer {
+    padding: 16px 20px 20px;
+  }
+
+  .login-logo-wrap {
+    width: min(200px, 80vw);
+    height: min(200px, 80vw);
+    margin-bottom: 22px;
   }
 
   .login-subtitle {
@@ -995,7 +1071,8 @@ tr:hover {
   }
 
   .google-signin-btn {
-    font-size: 15px;
+    font-size: 14px;
+    min-height: 48px;
   }
 
   .user-menu {
@@ -1003,9 +1080,31 @@ tr:hover {
     width: min(300px, calc(100vw - 20px));
   }
 
-  .household-card {
-    margin: 16px;
-    padding: 32px 24px;
+  .household-layout {
+    width: min(400px, calc(100% - 24px));
+  }
+
+  .household-card-body {
+    padding: 30px 22px 26px;
+  }
+
+  .household-card-footer {
+    padding: 16px 20px 20px;
+  }
+
+  .household-logo-wrap {
+    width: min(184px, 70vw);
+    height: min(184px, 70vw);
+    margin-bottom: 18px;
+  }
+
+  .household-title {
+    font-size: 22px;
+  }
+
+  /* Avoid iOS zoom on input focus (16px minimum) */
+  .household-input {
+    font-size: 16px;
   }
 }
 
@@ -1216,33 +1315,138 @@ tr:hover {
   align-items: center;
   justify-content: center;
   min-height: 100vh;
+  padding: 24px 0;
   background: var(--bg);
 }
 
+[data-theme="light"] .login-container {
+  background:
+    radial-gradient(ellipse 95% 70% at 50% -5%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 52%),
+    var(--bg);
+}
+
+[data-theme="dark"] .login-container {
+  background:
+    radial-gradient(ellipse 90% 65% at 50% -8%, rgba(255, 255, 255, 0.06), transparent 48%),
+    var(--bg);
+}
+
 .login-layout {
-  width: min(460px, calc(100% - 24px));
+  width: min(400px, calc(100% - 32px));
 }
 
 .login-card {
+  position: relative;
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 30px 26px;
+  border-radius: 22px;
+  padding: 0;
+  overflow: hidden;
   text-align: left;
-  box-shadow: var(--shadow);
   width: 100%;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 14px 44px rgba(0, 0, 0, 0.08);
 }
 
-.login-card h1 {
-  font-size: 30px;
-  line-height: 1.1;
-  margin-bottom: 8px;
+[data-theme="dark"] .login-card {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.05) inset,
+    0 18px 50px rgba(0, 0, 0, 0.55);
+}
+
+.login-card-body {
+  padding: 40px 36px 32px;
+}
+
+.login-card-footer {
+  padding: 18px 28px 22px;
+  background: var(--bg-hover);
+  border-top: 1px solid var(--border);
+  text-align: center;
+}
+
+/* Light mode: footer was too close to page --bg; deepen strip + text for clear separation */
+[data-theme="light"] .login-card-footer,
+[data-theme="light"] .household-card-footer {
+  background: #d4d2ca;
+  border-top: 1px solid #b9b6ad;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+[data-theme="light"] .login-card-footer .login-note {
+  color: #3d4452;
+}
+
+[data-theme="light"] .household-card-footer .household-setup-account-back {
+  color: #3d4452;
+}
+
+[data-theme="light"] .household-card-footer .household-setup-account-back:hover {
+  color: #1f2430;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.login-card-header {
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+/* Circular mask removes square matte / white box around round artwork */
+.login-logo-wrap {
+  width: min(232px, 78vw);
+  height: min(232px, 78vw);
+  margin: 0 auto 26px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  box-shadow:
+    0 6px 28px rgba(0, 0, 0, 0.08),
+    0 0 0 1px rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="dark"] .login-logo-wrap {
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+/* Full badge with text; mild zoom trims outer sticker edge without clipping the green ring */
+.login-brand-logo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 50%;
+  transform: scale(1.12);
+  transform-origin: center center;
+  display: block;
 }
 
 .login-subtitle {
   color: var(--text-muted);
-  font-size: 16px;
-  margin-bottom: 20px;
+  font-size: 17px;
+  font-weight: 500;
+  line-height: 1.5;
+  letter-spacing: 0.01em;
+  margin: 0 auto;
+  max-width: 26ch;
+}
+
+.login-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .google-signin-btn {
@@ -1251,21 +1455,29 @@ tr:hover {
   justify-content: center;
   gap: 10px;
   width: 100%;
-  min-height: 46px;
-  padding: 12px 18px;
+  min-height: 52px;
+  padding: 14px 22px;
   border: 1px solid var(--border);
   background: var(--bg-card);
   color: var(--text);
-  border-radius: var(--radius);
+  border-radius: 999px;
   cursor: pointer;
   user-select: none;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
-  transition: all 0.15s;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  letter-spacing: 0.02em;
+  transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="dark"] .google-signin-btn {
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
 }
 
 .google-signin-btn:hover {
   background: var(--bg-hover);
+  border-color: var(--text-muted);
 }
 
 .google-signin-btn:disabled {
@@ -1283,16 +1495,20 @@ tr:hover {
 }
 
 .login-note {
-  margin-top: 14px;
-  font-size: 12px;
+  margin: 0 auto;
+  max-width: 34ch;
+  font-size: 12.5px;
+  font-weight: 500;
   color: var(--text-muted);
-  line-height: 1.4;
+  line-height: 1.45;
+  letter-spacing: 0.01em;
 }
 
 .login-error {
   color: var(--red);
   font-size: 13px;
-  margin-top: 10px;
+  margin: 0;
+  text-align: center;
 }
 
 .auth-loading {
@@ -1455,16 +1671,20 @@ tr:hover {
 
 @media (max-width: 900px) {
   .login-layout {
-    width: min(460px, calc(100% - 20px));
+    width: min(400px, calc(100% - 24px));
   }
 
-  .login-card {
-    margin: 0;
-    padding: 30px 24px;
+  .login-card-body {
+    padding: 36px 28px 28px;
   }
 
-  .login-card h1 {
-    font-size: 28px;
+  .login-logo-wrap {
+    width: min(216px, 76vw);
+    height: min(216px, 76vw);
+  }
+
+  .login-subtitle {
+    font-size: 16px;
   }
 
   .google-signin-btn {
@@ -1473,26 +1693,123 @@ tr:hover {
 }
 
 /* ===== HOUSEHOLD SETUP ===== */
+.household-layout {
+  width: min(400px, calc(100% - 32px));
+}
+
 .household-card {
+  position: relative;
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 48px 40px;
+  border-radius: 22px;
+  padding: 0;
+  overflow: hidden;
   text-align: center;
-  box-shadow: var(--shadow);
-  max-width: 440px;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 14px 44px rgba(0, 0, 0, 0.08);
   width: 100%;
 }
 
-.household-card h1 {
-  font-size: 24px;
+[data-theme="dark"] .household-card {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.05) inset,
+    0 18px 50px rgba(0, 0, 0, 0.55);
+}
+
+.household-card-body {
+  padding: 36px 32px 32px;
+}
+
+.household-card-footer {
+  padding: 18px 28px 22px;
+  background: var(--bg-hover);
+  border-top: 1px solid var(--border);
+  text-align: center;
+}
+
+.household-card-header {
   margin-bottom: 8px;
+}
+
+.household-logo-wrap {
+  width: min(200px, 72vw);
+  height: min(200px, 72vw);
+  margin: 0 auto 20px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  box-shadow:
+    0 6px 28px rgba(0, 0, 0, 0.08),
+    0 0 0 1px rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="dark"] .household-logo-wrap {
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.household-brand-logo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 50%;
+  transform: scale(1.08);
+  transform-origin: center center;
+  display: block;
+}
+
+.household-title {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.2;
+  margin: 0 0 4px;
+  color: var(--text);
+}
+
+.household-subtitle {
+  text-align: center;
+  max-width: 34ch;
+  margin-left: auto;
+  margin-right: auto;
+  margin-bottom: 20px;
+}
+
+.household-inline-error {
+  margin-top: 16px;
+}
+
+.household-setup-account-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 4px 0;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 13.5px;
+  font-family: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: color 0.15s;
+}
+
+.household-setup-account-back:hover {
+  color: var(--text);
 }
 
 .household-options {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.household-options + .household-actions {
+  margin-top: 18px;
 }
 
 .household-option {
@@ -1548,8 +1865,26 @@ tr:hover {
 
 .household-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   justify-content: center;
+}
+
+.household-actions > .btn {
+  flex: 1 1 auto;
+  min-width: min(120px, 42%);
+  min-height: 44px;
+}
+
+@media (max-width: 380px) {
+  .household-actions {
+    flex-direction: column;
+  }
+
+  .household-actions > .btn {
+    width: 100%;
+    min-width: 0;
+  }
 }
 
 /* ===== SKELETON LOADING ===== */

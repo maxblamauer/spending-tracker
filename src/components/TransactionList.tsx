@@ -4,6 +4,7 @@ import { db } from '../firebase';
 import { CATEGORIES } from '../types';
 import { SparkCard } from './ui/SparkCard';
 import { FilterSelect } from './ui/FilterSelect';
+import { reconcileBillingPeriod } from '../lib/statementPeriod';
 
 interface Transaction {
   id: string;
@@ -208,10 +209,13 @@ export function TransactionList({ onUpdate, initialCategory = '', initialStateme
           onChange={(value) => setFilter({ ...filter, statement: value })}
           options={[
             { value: '', label: 'All Statements' },
-            ...statements.map((s) => ({
-              value: s.id,
-              label: `${formatStmtDate(s.statementDate)} (${s.periodStart} to ${s.periodEnd})`,
-            })),
+            ...statements.map((s) => {
+              const r = reconcileBillingPeriod(s.periodStart, s.periodEnd);
+              return {
+                value: s.id,
+                label: `${formatStmtDate(s.statementDate)} (${r.periodStart} to ${r.periodEnd})`,
+              };
+            }),
           ]}
         />
         <FilterSelect

@@ -3,16 +3,17 @@ import { onAuthStateChanged, signOut } from 'firebase/auth';
 import type { User } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from './firebase';
+import { useTheme } from './ThemeContext';
 import { Upload } from './components/Upload';
 import { TransactionList } from './components/TransactionList';
 import { Dashboard } from './components/Dashboard';
 import { MappingsManager } from './components/MappingsManager';
 import { Login } from './components/Login';
 import { HouseholdSetup } from './components/HouseholdSetup';
+import stevieLogoMark from './assets/stevie-logo-mark.png';
 import './App.css';
 
 type Tab = 'dashboard' | 'transactions' | 'upload' | 'mappings';
-type Theme = 'dark' | 'light';
 
 function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -28,9 +29,7 @@ function App() {
   const [categoryFilter, setCategoryFilter] = useState('');
   const [selectedStatement, setSelectedStatement] = useState('');
   const [cardholder, setCardholder] = useState('');
-  const [theme, setTheme] = useState<Theme>(() => {
-    return (localStorage.getItem('theme') as Theme) || 'dark';
-  });
+  const { theme, setTheme } = useTheme();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
@@ -76,11 +75,6 @@ function App() {
     }
   };
 
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('theme', theme);
-  }, [theme]);
-
   const refresh = () => setRefreshKey((k) => k + 1);
 
   const navigateToCategory = (category: string) => {
@@ -118,7 +112,12 @@ function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <h1>{householdName || 'Spending Tracker'}</h1>
+        <div className="app-header-brand">
+          <div className="stevie-logo-clip stevie-logo-clip-sm" aria-hidden>
+            <img src={stevieLogoMark} alt="" />
+          </div>
+          <h1>{householdName || 'College fund'}</h1>
+        </div>
         <nav className="tabs">
           {(['dashboard', 'transactions', 'upload', 'mappings'] as Tab[]).map((tab) => (
             <button
@@ -148,12 +147,9 @@ function App() {
                   {householdName && (
                     <div className="user-menu-header">
                       <div className="user-menu-household-row">
-                        <span className="user-menu-item-icon">
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M3 10.5 12 3l9 7.5" />
-                            <path d="M5 9.5V21h14V9.5" />
-                          </svg>
-                        </span>
+                        <div className="stevie-logo-clip stevie-logo-clip-xs" aria-hidden>
+                          <img src={stevieLogoMark} alt="" />
+                        </div>
                         <span className="user-menu-household-name">{householdName}</span>
                       </div>
                     </div>

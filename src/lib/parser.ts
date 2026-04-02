@@ -1,6 +1,7 @@
 import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
 import { categorizeTransaction } from './categorize';
 import type { CategoryMapping } from './categorize';
+import { reconcileBillingPeriod } from './statementPeriod';
 
 GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.mjs',
@@ -194,10 +195,16 @@ function parseBMO(text: string, mappings: CategoryMapping[]): ParsedStatement {
     if (txnArea) parseSection(txnArea[1], 'Primary');
   }
 
+  let periodStartIso = periodStart ? normalizeDate(periodStart, year) : '';
+  let periodEndIso = periodEnd ? normalizeDate(periodEnd, year) : '';
+  if (periodStartIso && periodEndIso) {
+    ({ periodStart: periodStartIso, periodEnd: periodEndIso } = reconcileBillingPeriod(periodStartIso, periodEndIso));
+  }
+
   return {
     statementDate: normalizeDate(stmtDate, year),
-    periodStart: periodStart ? normalizeDate(periodStart, year) : '',
-    periodEnd: periodEnd ? normalizeDate(periodEnd, year) : '',
+    periodStart: periodStartIso,
+    periodEnd: periodEndIso,
     totalBalance,
     transactions,
   };
@@ -266,10 +273,16 @@ function parseGeneric(text: string, mappings: CategoryMapping[]): ParsedStatemen
   // Sort by date
   transactions.sort((a, b) => b.transDate.localeCompare(a.transDate));
 
+  let periodStartOut = periodStart;
+  let periodEndOut = periodEnd;
+  if (periodStartOut && periodEndOut) {
+    ({ periodStart: periodStartOut, periodEnd: periodEndOut } = reconcileBillingPeriod(periodStartOut, periodEndOut));
+  }
+
   return {
     statementDate,
-    periodStart,
-    periodEnd,
+    periodStart: periodStartOut,
+    periodEnd: periodEndOut,
     totalBalance,
     transactions,
   };

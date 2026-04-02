@@ -1,6 +1,9 @@
 import { useState } from 'react';
+import { signOut } from 'firebase/auth';
 import { doc, setDoc, addDoc, collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
-import { db } from '../firebase';
+import { auth, db } from '../firebase';
+import stevieLogoMark from '../assets/stevie-logo-mark.png';
+import { ThemeToggleButton } from './ui/ThemeToggleButton';
 
 interface Props {
   uid: string;
@@ -41,14 +44,12 @@ export function HouseholdSetup({ uid, userName, userEmail, onComplete }: Props) 
         createdAt: Timestamp.now(),
       });
 
-      // Add user as member
       await setDoc(doc(db, 'households', householdRef.id, 'members', uid), {
         email: userEmail,
         name: userName,
         joinedAt: Timestamp.now(),
       });
 
-      // Create user doc pointing to household
       await setDoc(doc(db, 'users', uid), {
         householdId: householdRef.id,
         email: userEmail,
@@ -60,6 +61,15 @@ export function HouseholdSetup({ uid, userName, userEmail, onComplete }: Props) 
       setError(err instanceof Error ? err.message : 'Failed to create household');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const switchGoogleAccount = async () => {
+    setError('');
+    try {
+      await signOut(auth);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not sign out');
     }
   };
 
@@ -83,14 +93,12 @@ export function HouseholdSetup({ uid, userName, userEmail, onComplete }: Props) 
 
       const householdDoc = snap.docs[0];
 
-      // Add user as member
       await setDoc(doc(db, 'households', householdDoc.id, 'members', uid), {
         email: userEmail,
         name: userName,
         joinedAt: Timestamp.now(),
       });
 
-      // Create user doc pointing to household
       await setDoc(doc(db, 'users', uid), {
         householdId: householdDoc.id,
         email: userEmail,
@@ -105,71 +113,104 @@ export function HouseholdSetup({ uid, userName, userEmail, onComplete }: Props) 
     }
   };
 
+  const heading =
+    mode === 'choose' ? 'Welcome' : mode === 'create' ? 'Name your household' : 'Join a household';
+
   return (
     <div className="login-container">
-      <div className="household-card">
-        <h1>Welcome to Spending Tracker</h1>
+      <ThemeToggleButton />
+      <div className="household-layout">
+        <div className="household-card">
+          <div className="household-card-body">
+            <div className="household-card-header">
+              <div className="household-logo-wrap">
+                <img
+                  src={stevieLogoMark}
+                  alt=""
+                  className="household-brand-logo"
+                  width={256}
+                  height={256}
+                />
+              </div>
+              <h1 className="household-title">{heading}</h1>
+            </div>
 
-        {mode === 'choose' && (
-          <>
-            <p className="login-subtitle">Set up your household to get started</p>
-            <div className="household-options">
-              <button className="household-option" onClick={() => setMode('create')}>
-                <strong>Create Household</strong>
-                <span>Start fresh and invite others to join</span>
-              </button>
-              <button className="household-option" onClick={() => setMode('join')}>
-                <strong>Join Household</strong>
-                <span>Enter an invite code from someone</span>
+            {mode === 'choose' && (
+              <>
+                <p className="login-subtitle household-subtitle">Set up your household to get started</p>
+                <div className="household-options">
+                  <button type="button" className="household-option" onClick={() => { setError(''); setMode('create'); }}>
+                    <strong>Create household</strong>
+                    <span>Start fresh and invite others to join</span>
+                  </button>
+                  <button type="button" className="household-option" onClick={() => { setError(''); setMode('join'); }}>
+                    <strong>Join household</strong>
+                    <span>Enter an invite code from someone</span>
+                  </button>
+                </div>
+              </>
+            )}
+
+            {mode === 'create' && (
+              <>
+                <p className="login-subtitle household-subtitle">
+                  This name appears throughout the app for your household.
+                </p>
+                <input
+                  type="text"
+                  className="household-input"
+                  placeholder="e.g. Denver's College Fund"
+                  value={householdName}
+                  onChange={(e) => setHouseholdName(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && void createHousehold()}
+                  autoFocus
+                />
+                <div className="household-actions">
+                  <button type="button" className="btn" onClick={() => { setError(''); setMode('choose'); }}>
+                    Back
+                  </button>
+                  <button type="button" className="btn btn-save" onClick={() => void createHousehold()} disabled={loading}>
+                    {loading ? 'Creating...' : 'Create'}
+                  </button>
+                </div>
+              </>
+            )}
+
+            {mode === 'join' && (
+              <>
+                <p className="login-subtitle household-subtitle">Enter the invite code</p>
+                <input
+                  type="text"
+                  className="household-input invite-code-input"
+                  placeholder="ABC123"
+                  value={inviteCode}
+                  onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+                  onKeyDown={(e) => e.key === 'Enter' && void joinHousehold()}
+                  maxLength={6}
+                  autoFocus
+                />
+                <div className="household-actions">
+                  <button type="button" className="btn" onClick={() => { setError(''); setMode('choose'); }}>
+                    Back
+                  </button>
+                  <button type="button" className="btn btn-save" onClick={() => void joinHousehold()} disabled={loading}>
+                    {loading ? 'Joining...' : 'Join'}
+                  </button>
+                </div>
+              </>
+            )}
+
+            {error && <p className="login-error household-inline-error">{error}</p>}
+          </div>
+
+          {mode === 'choose' && (
+            <div className="household-card-footer">
+              <button type="button" className="household-setup-account-back" onClick={() => void switchGoogleAccount()}>
+                ← Use a different Google account
               </button>
             </div>
-          </>
-        )}
-
-        {mode === 'create' && (
-          <>
-            <p className="login-subtitle">Name your household</p>
-            <input
-              type="text"
-              className="household-input"
-              placeholder="e.g. The Blamauers"
-              value={householdName}
-              onChange={(e) => setHouseholdName(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && createHousehold()}
-              autoFocus
-            />
-            <div className="household-actions">
-              <button className="btn" onClick={() => setMode('choose')}>Back</button>
-              <button className="btn btn-save" onClick={createHousehold} disabled={loading}>
-                {loading ? 'Creating...' : 'Create'}
-              </button>
-            </div>
-          </>
-        )}
-
-        {mode === 'join' && (
-          <>
-            <p className="login-subtitle">Enter the invite code</p>
-            <input
-              type="text"
-              className="household-input invite-code-input"
-              placeholder="ABC123"
-              value={inviteCode}
-              onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
-              onKeyDown={(e) => e.key === 'Enter' && joinHousehold()}
-              maxLength={6}
-              autoFocus
-            />
-            <div className="household-actions">
-              <button className="btn" onClick={() => setMode('choose')}>Back</button>
-              <button className="btn btn-save" onClick={joinHousehold} disabled={loading}>
-                {loading ? 'Joining...' : 'Join'}
-              </button>
-            </div>
-          </>
-        )}
-
-        {error && <p className="login-error">{error}</p>}
+          )}
+        </div>
       </div>
     </div>
   );
