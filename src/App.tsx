@@ -236,6 +236,7 @@ function App() {
             onUpdate={refresh}
             initialCategory={categoryFilter}
             initialStatement={selectedStatement}
+            initialCardholder={cardholder}
             householdId={householdId}
           />
         )}

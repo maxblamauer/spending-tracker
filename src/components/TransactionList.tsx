@@ -30,6 +30,7 @@ interface Props {
   onUpdate: () => void;
   initialCategory?: string;
   initialStatement?: string;
+  initialCardholder?: string;
   householdId: string;
 }
 
@@ -39,11 +40,27 @@ function formatStmtDate(dateStr: string): string {
   return `${months[parseInt(m) - 1]} ${d}`;
 }
 
-export function TransactionList({ onUpdate, initialCategory = '', initialStatement = '', householdId }: Props) {
+function formatTxnAmount(amount: number, isCredit: boolean): string {
+  const formatted = Math.abs(amount).toLocaleString('en-CA', {
+    style: 'currency',
+    currency: 'CAD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  return isCredit ? `-${formatted}` : formatted;
+}
+
+export function TransactionList({
+  onUpdate,
+  initialCategory = '',
+  initialStatement = '',
+  initialCardholder = '',
+  householdId,
+}: Props) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [filter, setFilter] = useState({
     category: initialCategory,
-    cardholder: '',
+    cardholder: initialCardholder,
     confirmed: '',
     statement: initialStatement,
   });
@@ -201,6 +218,32 @@ export function TransactionList({ onUpdate, initialCategory = '', initialStateme
     ? (trendDelta / prevStatementSpending) * 100
     : 0;
 
+  const chargeRows = transactions.filter((t) => !t.isCredit);
+  const chargeCount = chargeRows.length;
+  const avgCharge = chargeCount > 0 ? totalAmount / chargeCount : 0;
+
+  const hasExtraFilters = Boolean(filter.category || filter.cardholder || filter.confirmed);
+  const hasAnyFilter = Boolean(filter.statement || hasExtraFilters);
+
+  const primaryLabel = filter.statement
+    ? hasExtraFilters
+      ? 'In this view'
+      : 'Statement charges'
+    : hasAnyFilter
+      ? 'Filtered charges'
+      : 'All charges';
+
+  const primarySubtitleParts: string[] = [];
+  if (filter.category) primarySubtitleParts.push(filter.category);
+  if (filter.cardholder) primarySubtitleParts.push(filter.cardholder.split(' ')[0] || filter.cardholder);
+  if (filter.confirmed === 'true') primarySubtitleParts.push('Confirmed');
+  if (filter.confirmed === 'false') primarySubtitleParts.push('Unconfirmed');
+  if (!filter.statement) primarySubtitleParts.push('All statements');
+  const primarySubtitle =
+    primarySubtitleParts.length > 0 ? primarySubtitleParts.join(' · ') : undefined;
+
+  const previousLabel = filter.statement ? 'Previous statement' : 'Period compare';
+
   return (
     <div className="transactions-page">
     <div className="filters transactions-filters-top">
@@ -253,27 +296,33 @@ export function TransactionList({ onUpdate, initialCategory = '', initialStateme
       <div className="transactions-toolbar">
         <div className="stats-summary">
           <SparkCard
-            label={filter.statement ? 'Statement Spending' : 'Total Spending'}
+            label={primaryLabel}
             value={currentStatementSpending.toLocaleString('en-CA', { style: 'currency', currency: 'CAD' })}
+            subtitle={primarySubtitle}
           />
           <SparkCard
-            label="Previous Statement"
+            label={previousLabel}
             value={prevStatementSpending !== null
               ? prevStatementSpending.toLocaleString('en-CA', { style: 'currency', currency: 'CAD' })
-              : '--'}
+              : '$0.00'}
             change={filter.statement && prevStatementSpending !== null ? trendPct : undefined}
             invertColor
           />
           <SparkCard
-            label="Transactions"
-            value={String(transactions.filter((t) => !t.isCredit).length)}
+            label="Avg charge"
+            value={
+              chargeCount > 0
+                ? avgCharge.toLocaleString('en-CA', { style: 'currency', currency: 'CAD', maximumFractionDigits: 2 })
+                : '$0.00'
+            }
+            subtitle={chargeCount > 0 ? `Across ${chargeCount} charge${chargeCount !== 1 ? 's' : ''}` : 'No charges in view'}
           />
           <SparkCard
             label="Refunds"
             value={creditAmount > 0 ? `-${creditAmount.toLocaleString('en-CA', { style: 'currency', currency: 'CAD' })}` : '$0.00'}
             valueColor={creditAmount > 0 ? 'var(--green)' : undefined}
+            subtitle={filter.category || filter.cardholder || filter.confirmed ? 'In filtered rows' : undefined}
           />
-
         </div>
       </div>
 
@@ -282,6 +331,7 @@ export function TransactionList({ onUpdate, initialCategory = '', initialStateme
           <div className="table-skeleton">
             {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (
               <div key={i} className="table-skeleton-row">
+                <div className="skeleton-line" style={{ width: '24px', height: '14px' }} />
                 <div className="skeleton-line" style={{ width: '80px', height: '14px' }} />
                 <div className="skeleton-line" style={{ flex: 1, height: '14px' }} />
                 <div className="skeleton-line" style={{ width: '60px', height: '14px' }} />
@@ -297,6 +347,7 @@ export function TransactionList({ onUpdate, initialCategory = '', initialStateme
         <table className="transactions-table">
           <thead>
             <tr>
+              <th className="txn-index-col">#</th>
               <th>Date</th>
               <th>Description</th>
               <th>Cardholder</th>
@@ -306,15 +357,16 @@ export function TransactionList({ onUpdate, initialCategory = '', initialStateme
             </tr>
           </thead>
           <tbody>
-            {transactions.map((txn) => (
+            {transactions.map((txn, index) => (
               <tr key={txn.id} className={txn.isCredit ? 'credit-row' : ''}>
+                <td className="txn-index-cell">{index + 1}</td>
                 <td className="date-cell">{txn.transDate}</td>
                 <td className="desc-cell" title={txn.description}>
                   {txn.description}
                 </td>
                 <td>{txn.cardholder.split(' ')[0]}</td>
-                <td className={`amount-cell ${txn.isCredit ? 'credit' : 'debit'}`}>
-                  {txn.isCredit ? '-' : ''}${txn.amount.toFixed(2)}
+                <td className={`amount-cell ${txn.isCredit ? 'credit' : 'charge'}`}>
+                  {formatTxnAmount(txn.amount, txn.isCredit)}
                 </td>
                 <td>
                   <span className="category-cell-wrapper">

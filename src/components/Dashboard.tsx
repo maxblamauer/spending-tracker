@@ -78,7 +78,7 @@ export function Dashboard({ onCategoryClick, theme, householdId, selectedStateme
       const stmts = stmtSnap.docs.map((d) => ({ id: d.id, ...d.data() } as StatementInfo));
       setStatements(stmts);
 
-      // Load all transactions (debits only for stats)
+      // Load all transactions (charges only — exclude credits/refunds for stats)
       const txnSnap = await getDocs(collection(db, 'households', householdId, 'transactions'));
       const txns = txnSnap.docs.map((d) => d.data() as TransactionDoc);
       setAllTransactions(txns);
@@ -304,7 +304,7 @@ export function Dashboard({ onCategoryClick, theme, householdId, selectedStateme
                 selectedStatement
                   ? focusIdx >= 0
                     ? fmtMoney(focusTotal)
-                    : '--'
+                    : '$0.00'
                   : fmtMoney(totalSpending)
               }
               change={selectedStatement ? selectedSpendingChange : (stmtTotals.length > 1 ? spendingChange : undefined)}
@@ -320,7 +320,7 @@ export function Dashboard({ onCategoryClick, theme, householdId, selectedStateme
               value={
                 sortedStmts.length > 0
                   ? fmtMoney(Math.round(dailyAverageInPeriod * 100) / 100)
-                  : '--'
+                  : '$0.00'
               }
               subtitle={
                 selectedStatement && focusStmt

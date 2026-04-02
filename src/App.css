@@ -293,6 +293,21 @@ body {
   margin-bottom: 16px;
 }
 
+.transactions-table .txn-index-col,
+.transactions-table .txn-index-cell {
+  width: 2.25rem;
+  padding-left: 12px;
+  padding-right: 8px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.transactions-table thead .txn-index-col {
+  font-weight: 600;
+}
+
 .transactions-header {
   display: flex;
   justify-content: space-between;
@@ -404,7 +419,7 @@ tr:hover {
   color: var(--green);
 }
 
-.amount-cell.debit {
+.amount-cell.charge {
   color: var(--text);
 }
 
@@ -954,7 +969,7 @@ tr:hover {
 
   .transactions-table tbody tr {
     display: grid;
-    grid-template-columns: 1fr auto;
+    grid-template-columns: auto 1fr auto;
     gap: 2px 8px;
     padding: 12px;
     border: 1px solid var(--border);
@@ -973,13 +988,24 @@ tr:hover {
     font-size: 14px;
   }
 
-  .transactions-table .date-cell {
+  .transactions-table .txn-index-cell {
     grid-column: 1;
+    grid-row: 1;
+    align-self: start;
+    width: auto;
+    padding: 0 4px 0 0;
+    font-size: 11px;
+    line-height: 1.4;
+  }
+
+  .transactions-table .date-cell {
+    grid-column: 2;
+    grid-row: 1;
     font-size: 12px;
   }
 
   .transactions-table .amount-cell {
-    grid-column: 2;
+    grid-column: 3;
     grid-row: 1;
     text-align: right;
     font-size: 15px;
@@ -988,22 +1014,25 @@ tr:hover {
 
   .transactions-table .desc-cell {
     grid-column: 1 / -1;
+    grid-row: 2;
     max-width: none;
     white-space: normal;
     font-size: 14px;
   }
 
   /* Hide cardholder column on mobile */
-  .transactions-table td:nth-child(3) {
+  .transactions-table td:nth-child(4) {
     display: none;
   }
 
-  .transactions-table td:nth-child(5) {
+  .transactions-table td:nth-child(6) {
     grid-column: 1;
+    grid-row: 3;
   }
 
-  .transactions-table td:nth-child(6) {
-    grid-column: 2;
+  .transactions-table td:nth-child(7) {
+    grid-column: 3;
+    grid-row: 3;
     text-align: right;
   }
 
