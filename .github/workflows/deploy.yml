@@ -24,6 +24,12 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+      - name: Verify build output
+        run: |
+          test -f dist/index.html
+          test -d dist/assets
+          test -n "$(find dist/assets -maxdepth 1 -name '*.js' -print -quit)"
+          test -n "$(find dist/assets -maxdepth 1 -name '*.css' -print -quit)"
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
