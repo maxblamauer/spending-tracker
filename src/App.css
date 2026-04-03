@@ -1873,6 +1873,7 @@ tr:hover {
 }
 
 .login-layout {
+  position: relative;
   width: min(400px, calc(100% - 32px));
 }
 
@@ -1888,6 +1889,11 @@ tr:hover {
   box-shadow:
     0 1px 2px rgba(0, 0, 0, 0.04),
     0 14px 44px rgba(0, 0, 0, 0.08);
+}
+
+/* Let the login thought bubble extend past the card edge (dots sit on the logo). */
+.login-card:has(.login-stevie-from-logo-popover) {
+  overflow: visible;
 }
 
 [data-theme="dark"] .login-card {
@@ -1944,11 +1950,104 @@ tr:hover {
   margin-bottom: 28px;
 }
 
+.login-brand-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+.login-stevie-anchor {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow: visible;
+}
+
+.login-stevie-logo-btn {
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 50%;
+  line-height: 0;
+  display: block;
+  margin: 0 auto;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  transition: transform 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.login-stevie-logo-btn:hover {
+  transform: scale(1.02);
+}
+
+.login-stevie-logo-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-stevie-logo-btn:hover {
+    transform: none;
+  }
+}
+
+/*
+ * Login Stevie: anchored on the logo — smallest dot sits on/near Stevie’s head, cloud opens to the right.
+ * Wide screens: absolute to .login-stevie-anchor. Narrow: fixed under theme toggle (not enough gutter).
+ */
+.login-stevie-from-logo-popover {
+  position: absolute;
+  left: calc(50% + min(46px, 14vw));
+  top: 10%;
+  z-index: 160;
+  width: max-content;
+  max-width: min(292px, calc(100vw - 28px));
+  min-width: 0;
+  pointer-events: auto;
+  /* Slight left pull keeps dots on the head; base `left` clears the cloud off the logo art. */
+  transform: translate(calc(-1 * min(6px, 2vw)), -32%);
+}
+
+.login-stevie-from-logo-popover .stevie-mood-popover.stevie-mood-popover--thought {
+  position: relative;
+  top: auto;
+  left: auto;
+  max-width: 100%;
+  box-sizing: border-box;
+  transform-origin: 0 48%;
+}
+
+.login-stevie-from-logo-popover .stevie-mood-popover--thought-login {
+  transform-origin: 0 50%;
+}
+
+@media (max-width: 719px) {
+  .login-stevie-from-logo-popover {
+    position: fixed;
+    top: calc(max(16px, env(safe-area-inset-top, 0px)) + 52px);
+    right: max(16px, env(safe-area-inset-right, 0px));
+    left: auto;
+    width: auto;
+    max-width: min(300px, calc(100vw - 32px));
+    transform: none;
+  }
+
+  .login-stevie-from-logo-popover .stevie-mood-popover.stevie-mood-popover--thought {
+    transform-origin: 92% 12%;
+  }
+}
+
 /* Circular mask removes square matte / white box around round artwork */
 .login-logo-wrap {
   width: min(232px, 78vw);
   height: min(232px, 78vw);
-  margin: 0 auto 26px;
+  margin: 0 auto;
   border-radius: 50%;
   overflow: hidden;
   flex-shrink: 0;

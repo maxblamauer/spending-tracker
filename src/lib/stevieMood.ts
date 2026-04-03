@@ -27,11 +27,7 @@ const BAD_LINES = [
 
 /** Upbeat lines when there’s no trend to compare yet (still “happy Stevie”). */
 const HAPPY_IDLE_LINES = [
-  'All tail wags until we line up two statements to compare.',
-  'Stevie’s in a good mood — add context and we’ll chat trends.',
-  'No drama yet. Upload or pick statements and I’ll perk up the math.',
-  'Living in the moment. Pick a prior period when you want the full scoop.',
-  'Happy to hang out here — comparisons unlock when history allows.',
+  'No change is good change. WOOF!',
 ];
 
 function pick<T>(arr: readonly T[]): T {

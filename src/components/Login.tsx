@@ -1,12 +1,23 @@
 import { signInWithPopup } from 'firebase/auth';
 import { auth, googleProvider } from '../firebase';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import stevieLogoWithText from '../assets/stevie-logo-with-text.png';
 import { ThemeToggleButton } from './ui/ThemeToggleButton';
+import { StevieThoughtBubble } from './ui/StevieThoughtBubble';
 
 export function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [loginStevieOpen, setLoginStevieOpen] = useState(false);
+
+  useEffect(() => {
+    if (!loginStevieOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setLoginStevieOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [loginStevieOpen]);
 
   const handleGoogleSignIn = async () => {
     setLoading(true);
@@ -29,14 +40,43 @@ export function Login() {
           <div className="login-card-body">
             <div className="login-card-header">
               <h1 className="sr-only">Stevies College Fund</h1>
-              <div className="login-logo-wrap">
-                <img
-                  src={stevieLogoWithText}
-                  alt=""
-                  className="login-brand-logo"
-                  width={256}
-                  height={256}
-                />
+              <div className="login-brand-stack">
+                <div className="login-stevie-anchor stevie-mood-anchor">
+                  <button
+                    type="button"
+                    className="login-stevie-logo-btn"
+                    onClick={() => setLoginStevieOpen((open) => !open)}
+                    aria-expanded={loginStevieOpen}
+                    aria-haspopup="dialog"
+                    aria-label="Note from Stevie"
+                  >
+                    <div className="login-logo-wrap">
+                      <img
+                        src={stevieLogoWithText}
+                        alt=""
+                        className="login-brand-logo"
+                        width={256}
+                        height={256}
+                      />
+                    </div>
+                  </button>
+                  {loginStevieOpen && (
+                    <>
+                      <div
+                        className="stevie-mood-backdrop"
+                        onClick={() => setLoginStevieOpen(false)}
+                        aria-hidden
+                      />
+                      <div className="login-stevie-from-logo-popover">
+                        <StevieThoughtBubble variant="login">
+                          <p className="stevie-mood-quip">
+                            I will bark at your spending here and there.
+                          </p>
+                        </StevieThoughtBubble>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
               <p className="login-subtitle">Log in to contribute to Stevies College Fund.</p>
             </div>
