@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import type { User } from 'firebase/auth';
-import { doc, getDoc, updateDoc, collection, getDocs } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import { useTheme } from './ThemeContext';
 import { Upload } from './components/Upload';
