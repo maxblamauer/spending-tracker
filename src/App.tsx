@@ -11,7 +11,6 @@ import { MappingsManager } from './components/MappingsManager';
 import { Login } from './components/Login';
 import { HouseholdSetup } from './components/HouseholdSetup';
 import { OnboardingMappingSetup } from './components/OnboardingMappingSetup';
-import stevieLogoMarkSm from './assets/stevie-logo-mark-sm.png';
 import stevieMoodGood from './assets/stevie-mood-happy.png';
 import stevieMoodBad from './assets/stevie-mood-skeptical.png';
 import { pickStevieQuip, type StevieMoodReport } from './lib/stevieMood';
@@ -35,6 +34,7 @@ function App() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [categoryFilter, setCategoryFilter] = useState('');
   const [selectedStatement, setSelectedStatement] = useState('');
+  const [selectedYear, setSelectedYear] = useState('');
   const [cardholder, setCardholder] = useState('');
   const { theme, setTheme } = useTheme();
   const authUidRef = useRef<string | null>(null);
@@ -261,9 +261,11 @@ function App() {
                 <div className="user-menu">
                   <div className="user-menu-header">
                     <div className="user-menu-household-row">
-                      <div className="stevie-logo-clip stevie-logo-clip-xs" aria-hidden>
-                        <img src={stevieLogoMarkSm} alt="" />
-                      </div>
+                      <span className="user-menu-item-icon" aria-hidden>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M4 11 12 5l8 6v9H4V11z" />
+                        </svg>
+                      </span>
                       <span className="user-menu-household-name">{householdName}</span>
                     </div>
                   </div>
@@ -277,9 +279,9 @@ function App() {
                       }}
                     >
                       <span className="user-menu-item-icon">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                          <rect x="9" y="9" width="13" height="13" rx="2" />
-                          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="8" y="8" width="12" height="12" rx="1" />
+                          <path d="M5 15V6a1 1 0 0 1 1-1h9" />
                         </svg>
                       </span>
                       <span className="user-menu-item-label">
@@ -298,13 +300,13 @@ function App() {
                   >
                     <span className="user-menu-item-icon">
                       {theme === 'dark' ? (
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                          <circle cx="12" cy="12" r="5" />
-                          <path d="M12 1v2.2M12 20.8V23M4.22 4.22l1.56 1.56M18.22 18.22l1.56 1.56M1 12h2.2M20.8 12H23M4.22 19.78l1.56-1.56M18.22 5.78l1.56-1.56" />
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="12" cy="12" r="3.5" />
+                          <path d="M12 4v2M12 18v2M4 12h2M18 12h2" />
                         </svg>
                       ) : (
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M12 3a7.5 7.5 0 1 0 9 9A9 9 0 1 1 12 3Z" />
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M18 9a7 7 0 1 1-9 9 6 6 0 1 0 9-9" />
                         </svg>
                       )}
                     </span>
@@ -312,10 +314,10 @@ function App() {
                   </button>
                   <button className="user-menu-item user-menu-action user-menu-danger" onClick={handleLogout}>
                     <span className="user-menu-item-icon">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                        <path d="m16 17 5-5-5-5" />
-                        <path d="M21 12H9" />
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M10 5v14" />
+                        <path d="M15 12h7" />
+                        <path d="m18 9 3 3-3 3" />
                       </svg>
                     </span>
                     <span className="user-menu-item-label">Sign out</span>
@@ -335,6 +337,8 @@ function App() {
             householdId={householdId}
             selectedStatement={selectedStatement}
             onStatementChange={setSelectedStatement}
+            selectedYear={selectedYear}
+            onYearChange={setSelectedYear}
             cardholder={cardholder}
             onCardholderChange={setCardholder}
             onStevieMood={setStevieMood}
@@ -348,6 +352,8 @@ function App() {
             initialCategory={categoryFilter}
             initialStatement={selectedStatement}
             initialCardholder={cardholder}
+            initialYear={selectedYear}
+            onYearChange={setSelectedYear}
             householdId={householdId}
             onStevieMood={setStevieMood}
             stevieStatHighlight={stevieStatHighlight}

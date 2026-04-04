@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { collection, addDoc, getDocs, deleteDoc, doc, query, where, writeBatch, Timestamp, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
 import { parseStatement } from '../lib/parser';
 import { reconcileBillingPeriod } from '../lib/statementPeriod';
+import { Modal, ModalBodyPanel } from './ui/Modal';
 import type { CategoryMapping } from '../lib/categorize';
 import type { CardProfile } from '../types';
 
@@ -39,6 +40,8 @@ export function Upload({ onUploaded, householdId }: Props) {
   const [statements, setStatements] = useState<StatementInfo[]>([]);
   const [cardProfiles, setCardProfiles] = useState<CardProfile[]>([]);
   const [selectedProfileId, setSelectedProfileId] = useState('');
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
 
   const fetchStatements = useCallback(async () => {
     const snap = await getDocs(
@@ -140,16 +143,32 @@ export function Upload({ onUploaded, householdId }: Props) {
     [onUploaded, householdId, fetchStatements]
   );
 
-  const deleteStatement = async (id: string) => {
-    if (!confirm('Delete this statement and all its transactions?')) return;
-    const txnSnap = await getDocs(
-      query(collection(db, 'households', householdId, 'transactions'), where('statementId', '==', id))
-    );
-    const deletePromises = txnSnap.docs.map((d) => deleteDoc(d.ref));
-    await Promise.all(deletePromises);
-    await deleteDoc(doc(db, 'households', householdId, 'statements', id));
-    await fetchStatements();
-    onUploaded();
+  const deleteDetailLine = useMemo(() => {
+    if (!deleteTargetId) return '';
+    const s = statements.find((x) => x.id === deleteTargetId);
+    if (!s) return 'This statement and all of its transactions will be permanently removed.';
+    const r = reconcileBillingPeriod(s.periodStart, s.periodEnd);
+    return `“${s.filename}” (${formatStmtDate(s.statementDate)} · ${r.periodStart} to ${r.periodEnd}) and all of its transactions will be permanently removed.`;
+  }, [deleteTargetId, statements]);
+
+  const confirmDeleteStatement = async () => {
+    if (!deleteTargetId) return;
+    setDeleteBusy(true);
+    try {
+      const id = deleteTargetId;
+      const txnSnap = await getDocs(
+        query(collection(db, 'households', householdId, 'transactions'), where('statementId', '==', id))
+      );
+      await Promise.all(txnSnap.docs.map((d) => deleteDoc(d.ref)));
+      await deleteDoc(doc(db, 'households', householdId, 'statements', id));
+      setDeleteTargetId(null);
+      await fetchStatements();
+      onUploaded();
+    } catch (err) {
+      console.error('Delete statement error:', err);
+    } finally {
+      setDeleteBusy(false);
+    }
   };
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -246,7 +265,15 @@ export function Upload({ onUploaded, householdId }: Props) {
                     <td>{r.periodStart} to {r.periodEnd}</td>
                     <td>{fmtMoney(s.totalBalance)}</td>
                     <td>{s.filename}</td>
-                    <td><button className="btn btn-xs btn-danger" onClick={() => deleteStatement(s.id)}>Delete</button></td>
+                    <td>
+                      <button
+                        type="button"
+                        className="btn btn-xs btn-destructive"
+                        onClick={() => setDeleteTargetId(s.id)}
+                      >
+                        Remove
+                      </button>
+                    </td>
                   </tr>
                 );
               })}
@@ -254,6 +281,32 @@ export function Upload({ onUploaded, householdId }: Props) {
           </table>
         )}
       </div>
+
+      <Modal
+        open={deleteTargetId !== null}
+        onClose={() => !deleteBusy && setDeleteTargetId(null)}
+        title="Are you sure?"
+        description="This action cannot be undone."
+        closeOnBackdropClick={!deleteBusy}
+        showCloseButton={!deleteBusy}
+      >
+        <ModalBodyPanel>
+          <p className="modal-confirm-detail">{deleteDetailLine}</p>
+        </ModalBodyPanel>
+        <div className="edit-card-panel-actions">
+          <button type="button" className="btn" disabled={deleteBusy} onClick={() => setDeleteTargetId(null)}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="btn btn-destructive"
+            disabled={deleteBusy}
+            onClick={() => void confirmDeleteStatement()}
+          >
+            {deleteBusy ? 'Deleting…' : 'Remove'}
+          </button>
+        </div>
+      </Modal>
     </div>
   );
 }

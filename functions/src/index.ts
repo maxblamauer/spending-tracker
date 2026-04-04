@@ -5,9 +5,9 @@ import Anthropic from '@anthropic-ai/sdk';
 const anthropicKey = defineSecret('ANTHROPIC_API_KEY');
 
 const CATEGORIES = [
-  'Groceries', 'Restaurants & Dining', 'Gas & Fuel', 'Transportation',
+  'Groceries', 'Restaurants & Dining', 'Gas & Fuel', 'Rides & Transit',
   'Shopping - Clothing', 'Shopping - Online', 'Shopping - General', 'Shopping - Home',
-  'Entertainment', 'Subscriptions', 'Alcohol & Liquor', 'Health & Pharmacy',
+  'Entertainment', 'Subscriptions', 'Alcohol & Liquor', 'Health',
   'Utilities', 'Travel', 'Pets', 'Auto & Maintenance', 'Convenience Store',
   'Fees & Charges', 'Payment', 'Other',
 ];

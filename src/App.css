@@ -68,9 +68,9 @@ body {
 
 /* ===== HEADER ===== */
 .app-header {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  justify-content: space-between;
   padding: 16px 32px;
   background: var(--bg-card);
   border-bottom: 1px solid var(--border);
@@ -86,6 +86,7 @@ body {
   gap: 10px;
   min-width: 0;
   flex-shrink: 0;
+  justify-self: start;
 }
 
 .app-header-brand h1 {
@@ -358,11 +359,13 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
+  justify-self: end;
 }
 
 .tabs {
   display: flex;
   gap: 4px;
+  justify-self: center;
 }
 
 .tab {
@@ -659,7 +662,8 @@ tr:hover {
   background: var(--bg-hover);
 }
 
-.credit-row {
+/* Dim credit rows without fading status — keeps Confirmed green matching stat cards */
+.credit-row > td:not(:nth-child(7)) {
   opacity: 0.6;
 }
 
@@ -732,9 +736,14 @@ tr:hover {
   padding: 3px 10px;
   border-radius: 12px;
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--green);
-  background: rgba(91, 154, 111, 0.12);
+  /* Opaque green tint — same token as stat / amount green, not grey */
+  background: color-mix(in srgb, var(--green) 14%, var(--bg-card));
+}
+
+[data-theme='dark'] .confirmed-badge {
+  background: color-mix(in srgb, var(--green) 22%, var(--bg-card));
 }
 
 .unconfirmed-badge {
@@ -825,6 +834,29 @@ tr:hover {
   opacity: 0.5;
 }
 
+/* Solid destructive actions (delete / remove) — opaque fill, no transparency */
+.btn-destructive {
+  background: var(--red);
+  border-color: var(--red);
+  color: #fff;
+}
+
+.btn-destructive:hover:not(:disabled) {
+  background: #985252;
+  border-color: #985252;
+  color: #fff;
+}
+
+[data-theme='dark'] .btn-destructive:hover:not(:disabled) {
+  background: #d08080;
+  border-color: #d08080;
+  color: #fff;
+}
+
+.btn-destructive:disabled {
+  opacity: 0.5;
+}
+
 .btn-confirm {
   background: var(--green);
   border-color: var(--green);
@@ -835,16 +867,6 @@ tr:hover {
   background: var(--green);
   border-color: var(--green);
   filter: brightness(1.08);
-}
-
-.btn-danger {
-  color: var(--red);
-  border-color: var(--red);
-}
-
-.btn-danger:hover {
-  background: var(--red);
-  color: var(--on-accent);
 }
 
 .empty-state {
@@ -947,7 +969,7 @@ tr:hover {
 
 .dashboard-controls {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px 10px;
   width: 100%;
   min-width: 0;
@@ -958,26 +980,42 @@ tr:hover {
   width: 100%;
   min-width: 0;
   max-width: 100%;
+  box-sizing: border-box;
+}
+
+.dashboard-controls--two-filters {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .dashboard-top-bar {
   display: flex;
-  align-items: center;
+  align-items: stretch;
   justify-content: stretch;
   margin-bottom: 16px;
   width: 100%;
   min-width: 0;
 }
 
-/* Match Transactions: filter group right-aligned from tablet/desktop up */
+/* Tablet/desktop: filter group stays right-aligned; 3-col grid inside fixed max width */
 @media (min-width: 641px) {
   .dashboard-top-bar {
     justify-content: flex-end;
   }
 
   .dashboard-controls {
-    width: min(520px, 100%);
+    width: min(660px, 100%);
     margin-left: auto;
+  }
+}
+
+/* Narrow: two on row 1, third full-width row 2 */
+@media (max-width: 640px) {
+  .dashboard-controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboard-controls > .filter-pill:nth-child(3) {
+    grid-column: 1 / -1;
   }
 }
 
@@ -1156,6 +1194,10 @@ tr:hover {
     min-width: 0;
     max-width: 100%;
   }
+
+  .transactions-filters-top--no-year .filter-pill:nth-child(3) {
+    grid-column: 1 / -1;
+  }
 }
 
 /* ===== MOBILE ===== */
@@ -1297,6 +1339,7 @@ tr:hover {
     grid-row: 2;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    justify-content: center;
   }
 
   .tab {
@@ -1327,10 +1370,10 @@ tr:hover {
     padding: 10px 28px 10px 12px;
   }
 
-  /* One stat card per row: room for amounts, filters clipping, and trend mascot */
+  /* Stat cards: 2×2 grid to match transactions filters / index density */
   .stats-summary {
-    grid-template-columns: 1fr;
-    gap: 12px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
   }
 
   .spark-card {
@@ -1428,10 +1471,8 @@ tr:hover {
     padding: 10px 28px 10px 12px;
   }
 
-  /* Transactions: 2×2 stat cards to match filter grid */
-  .transactions-page .stats-summary {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
+  .transactions-filters-top--no-year .filter-pill:nth-child(3) {
+    grid-column: 1 / -1;
   }
 
   .transactions-pending-bar {
@@ -1560,23 +1601,98 @@ tr:hover {
     border: none;
   }
 
-  /* Mappings table */
-  .mappings-table thead {
-    display: none;
+  /* Mappings tables — card rows like Transactions index */
+  .transactions-table.mappings-cards-table tbody tr,
+  .transactions-table.mappings-rules-table tbody tr {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 6px 12px;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 8px;
+    background: var(--bg-card);
   }
 
-  .mappings-table tbody tr {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px 12px;
-    padding: 10px 0;
-    align-items: center;
-    border-bottom: 1px solid var(--border);
+  .transactions-table.mappings-cards-table tbody tr:hover,
+  .transactions-table.mappings-rules-table tbody tr:hover {
+    background: var(--bg-card);
   }
 
-  .mappings-table td {
+  .transactions-table.mappings-cards-table tbody td,
+  .transactions-table.mappings-rules-table tbody td {
     padding: 0;
     border: none;
+  }
+
+  .transactions-table.mappings-cards-table .mapping-cell-primary {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    font-size: 14px;
+    line-height: 1.35;
+  }
+
+  .transactions-table.mappings-cards-table .mapping-cell-meta {
+    grid-column: 1;
+    grid-row: 2;
+    font-size: 13px;
+  }
+
+  .transactions-table.mappings-cards-table .mapping-cell-meta2 {
+    grid-column: 2;
+    grid-row: 2;
+    justify-self: end;
+    text-align: right;
+    font-size: 13px;
+  }
+
+  .transactions-table.mappings-cards-table .mapping-cell-actions {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    justify-self: end;
+    padding-top: 4px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: flex-end;
+    white-space: normal;
+  }
+
+  .transactions-table.mappings-rules-table .mapping-pattern-cell {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    min-width: 0;
+  }
+
+  .transactions-table.mappings-rules-table .mapping-pattern-cell .mapping-pattern-badge {
+    white-space: normal;
+    word-break: break-word;
+    overflow: visible;
+    text-overflow: unset;
+  }
+
+  .transactions-table.mappings-rules-table .mapping-category-cell {
+    grid-column: 1;
+    grid-row: 2;
+    align-self: end;
+    min-width: 0;
+  }
+
+  .transactions-table.mappings-rules-table .mapping-cell-actions {
+    grid-column: 2;
+    grid-row: 2;
+    justify-self: end;
+    align-self: end;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: flex-end;
+    white-space: normal;
+  }
+
+  .transactions-table.mappings-cards-table .mapping-cell-actions .btn + .btn,
+  .transactions-table.mappings-rules-table .mapping-cell-actions .btn + .btn {
+    margin-left: 0;
   }
 
   /* Upload */
@@ -1641,8 +1757,8 @@ tr:hover {
   }
 
   .user-menu-item-icon svg {
-    width: 15px;
-    height: 15px;
+    width: 16px;
+    height: 16px;
   }
 
   .stevie-logo-clip-xs {
@@ -1696,6 +1812,15 @@ tr:hover {
   font-size: 15px;
   margin-bottom: 16px;
   color: var(--text-muted);
+}
+
+/* Nivo tooltips use position:absolute inside the chart container — default overflow:hidden clips them at the edges */
+.chart-card--overflow-visible {
+  overflow: visible;
+}
+
+.chart-card--overflow-visible .trend-chart-wrap {
+  overflow: visible;
 }
 
 .chart-placeholder {
@@ -1806,6 +1931,45 @@ tr:hover {
   flex-shrink: 0;
 }
 
+/* ── Category group: parent/child rows ── */
+.category-group {
+  margin-bottom: 2px;
+}
+
+.category-parent-row .category-bar-label {
+  font-weight: 600;
+}
+
+.cat-sub-count {
+  font-size: 9px;
+  font-weight: 400;
+  color: var(--text-muted);
+  margin-left: 2px;
+}
+
+.category-children {
+  padding-left: 16px;
+  border-left: 2px solid var(--border);
+  margin-left: 7px;
+  margin-bottom: 4px;
+}
+
+.category-child-row {
+  opacity: 0.85;
+}
+
+.category-child-row:hover {
+  opacity: 1;
+}
+
+.category-child-row .category-bar-label {
+  font-size: 13px;
+}
+
+.category-child-row .category-bar-track {
+  height: 18px;
+}
+
 /* ===== STATEMENTS LIST ===== */
 .statements-list {
   background: var(--bg-card);
@@ -1820,9 +1984,173 @@ tr:hover {
   color: var(--text-muted);
 }
 
+/* ===== MODAL (reusable) ===== */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px))
+    max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+  box-sizing: border-box;
+  background: color-mix(in srgb, var(--text) 40%, transparent);
+  backdrop-filter: blur(2px);
+}
+
+[data-theme='dark'] .modal-backdrop {
+  /* Avoid light “wash” from mixing --text; keep overlay deep */
+  background: rgba(0, 0, 0, 0.72);
+}
+
+.modal-panel {
+  width: 100%;
+  max-width: 440px;
+  max-height: min(92vh, 720px);
+  overflow: auto;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  box-shadow: 0 12px 40px color-mix(in srgb, var(--text) 18%, transparent);
+  outline: none;
+}
+
+[data-theme='dark'] .modal-panel {
+  /* Sits closer to page chrome than --bg-card so it doesn’t read “lit up” */
+  background: var(--bg);
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.55);
+}
+
+.modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 18px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.modal-header-text {
+  min-width: 0;
+  flex: 1;
+}
+
+.modal-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  color: var(--text);
+}
+
+.modal-description {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.modal-close {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  margin: -6px -8px 0 0;
+  padding: 0;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-close:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.modal-body {
+  padding: 14px 18px 18px;
+}
+
+.modal-body-panel {
+  margin: 0 0 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--bg-hover);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--text) 6%, transparent);
+}
+
+[data-theme='dark'] .modal-body-panel {
+  /* Slightly below modal surface — not the lighter --bg-hover chip */
+  background: color-mix(in srgb, var(--bg) 88%, #000);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+}
+
+.modal-body > .edit-card-panel-fields:first-child {
+  margin-top: 2px;
+}
+
+.modal-body > .modal-body-panel + .edit-card-panel-actions {
+  margin-top: 12px;
+}
+
+.modal-panel--add-card {
+  max-width: 480px;
+}
+
+.modal-confirm-detail {
+  margin: 0 0 14px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.modal-body-panel .modal-confirm-detail {
+  margin: 0;
+}
+
+.modal-body .add-card-dropzone {
+  margin-bottom: 12px;
+}
+
+.modal-body-panel .add-card-dropzone {
+  margin-bottom: 0;
+}
+
+.modal-body-panel .modal-add-card-done-msg {
+  margin-bottom: 0;
+}
+
+.modal-body .onboarding-processing {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0 4px;
+  text-align: center;
+}
+
+.modal-add-card-done-msg {
+  margin-top: 0;
+  margin-bottom: 14px;
+}
+
 /* ===== MAPPINGS ===== */
 .mappings-page h2 {
   margin-bottom: 8px;
+}
+
+.mappings-page-section-title {
+  margin-top: 32px;
 }
 
 .hint {
@@ -1831,11 +2159,134 @@ tr:hover {
   margin-bottom: 20px;
 }
 
-.mappings-table code {
-  background: var(--bar-track);
-  padding: 2px 6px;
-  border-radius: 4px;
+/* Same index table chrome as Transactions (`table-wrapper` + `transactions-table`) */
+.transactions-table.mappings-cards-table .mapping-cell-meta,
+.transactions-table.mappings-cards-table .mapping-cell-meta2 {
+  color: var(--text-muted);
+}
+
+.transactions-table.mappings-rules-table .mapping-pattern-cell {
+  max-width: min(360px, 45vw);
+}
+
+.mapping-pattern-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 12px;
   font-size: 12px;
+  font-weight: 500;
+  font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+  background: var(--bg-hover);
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: baseline;
+}
+
+.transactions-table.mappings-cards-table th:last-child,
+.transactions-table.mappings-cards-table td:last-child,
+.transactions-table.mappings-rules-table th:last-child,
+.transactions-table.mappings-rules-table td:last-child {
+  text-align: right;
+  vertical-align: middle;
+}
+
+.transactions-table.mappings-cards-table .mapping-cell-actions,
+.transactions-table.mappings-rules-table .mapping-cell-actions {
+  text-align: right;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.transactions-table.mappings-cards-table .mapping-cell-actions .btn + .btn,
+.transactions-table.mappings-rules-table .mapping-cell-actions .btn + .btn {
+  margin-left: 6px;
+}
+
+.table-wrapper .mapping-cell-actions .btn-xs.btn-destructive,
+.statements-list .statements-table .btn-xs.btn-destructive {
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
+}
+
+.table-wrapper .mapping-cell-actions .btn-xs.btn-destructive:hover:not(:disabled),
+.statements-list .statements-table .btn-xs.btn-destructive:hover:not(:disabled) {
+  box-shadow: 0 3px 14px rgba(0, 0, 0, 0.22);
+  transform: translateY(-1px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .table-wrapper .mapping-cell-actions .btn-xs.btn-destructive,
+  .statements-list .statements-table .btn-xs.btn-destructive {
+    transition-duration: 0.01ms;
+  }
+
+  .table-wrapper .mapping-cell-actions .btn-xs.btn-destructive:hover:not(:disabled),
+  .statements-list .statements-table .btn-xs.btn-destructive:hover:not(:disabled) {
+    transform: none;
+  }
+}
+
+.edit-card-panel-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.edit-card-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+}
+
+.edit-card-field-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.edit-card-field .household-input {
+  margin-bottom: 0;
+  width: 100%;
+  padding: 8px 10px;
+  font-size: 14px;
+}
+
+.edit-card-panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
+.edit-card-panel-actions > .btn {
+  flex: 0 0 auto;
+  min-width: 0;
+  min-height: 0;
+  padding: 5px 11px;
+  font-size: 13px;
+}
+
+.edit-card-panel-error {
+  margin-top: 8px;
+  margin-bottom: 0;
+  font-size: 13px;
+}
+
+.mapping-category-select {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 /* ===== PIE LEGEND ===== */
@@ -2323,12 +2774,19 @@ tr:hover {
 }
 
 .user-menu-item-icon {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.user-menu-item-icon svg {
+  width: 16px;
+  height: 16px;
+  display: block;
   flex-shrink: 0;
 }
 
@@ -2883,6 +3341,28 @@ tr:hover {
 
 .add-card-inline .household-input {
   margin-bottom: 12px;
+}
+
+/* Mappings add/edit card: avoid login-style full-width stretched buttons */
+.add-card-inline .household-actions {
+  justify-content: flex-end;
+}
+
+.add-card-inline .household-actions > .btn {
+  flex: 0 0 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+@media (max-width: 380px) {
+  .add-card-inline .household-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .add-card-inline .household-actions > .btn {
+    width: auto;
+  }
 }
 
 .add-card-dropzone {

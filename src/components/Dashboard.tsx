@@ -7,20 +7,21 @@ import { db } from '../firebase';
 import { SparkCard } from './ui/SparkCard';
 import { FilterSelect } from './ui/FilterSelect';
 import { billingPeriodInclusiveDays, reconcileBillingPeriod } from '../lib/statementPeriod';
+import { CHILD_TO_PARENT } from '../lib/categoryGroups';
 import type { StevieMoodReport } from '../lib/stevieMood';
 
 const CATEGORY_COLORS: Record<string, string> = {
   'Groceries':            '#4da36a',
   'Restaurants & Dining': '#d48a3a',
   'Shopping - Clothing':  '#9b7ed8',
-  'Transportation':       '#d4b43a',
+  'Rides & Transit':       '#d4b43a',
   'Gas & Fuel':           '#4a9ec4',
   'Travel':               '#d46a6a',
   'Shopping - Online':    '#3ab5a5',
   'Utilities':            '#b76ad4',
   'Shopping - General':   '#7a8ee0',
   'Subscriptions':        '#5aa0d4',
-  'Health & Pharmacy':    '#d4709a',
+  'Health':               '#d4709a',
   'Alcohol & Liquor':     '#88b44a',
   'Fees & Charges':       '#8899aa',
   'Payment':              '#4abf8a',
@@ -30,10 +31,76 @@ const CATEGORY_COLORS: Record<string, string> = {
   'Pets':                 '#6bc4a0',
   'Auto & Maintenance':   '#8a9ec2',
   'Other':                '#99a5b0',
+  // Parent group colors
+  'Shopping':             '#7a8ee0',
+  'Transportation':       '#4a9ec4',
+  'Food & Dining':        '#d48a3a',
+  'Lifestyle':            '#aa80cc',
 };
 
 function getColor(category: string): string {
   return CATEGORY_COLORS[category] || '#99a5b0';
+}
+
+/* ── Build grouped category rows ── */
+interface GroupedCategory {
+  name: string;
+  total: number;
+  count: number;
+  color: string;
+  isParent: boolean;
+  children?: CategoryStat[];
+}
+
+function buildGroupedCategories(byCategory: CategoryStat[]): GroupedCategory[] {
+  const parentMap = new Map<string, { total: number; count: number; children: CategoryStat[] }>();
+  const standalone: GroupedCategory[] = [];
+
+  for (const cat of byCategory) {
+    const parent = CHILD_TO_PARENT[cat.category];
+    if (parent) {
+      if (!parentMap.has(parent)) parentMap.set(parent, { total: 0, count: 0, children: [] });
+      const g = parentMap.get(parent)!;
+      g.total += cat.total;
+      g.count += cat.count;
+      g.children.push(cat);
+    } else {
+      standalone.push({
+        name: cat.category,
+        total: cat.total,
+        count: cat.count,
+        color: getColor(cat.category),
+        isParent: false,
+      });
+    }
+  }
+
+  // Merge parent groups into result
+  for (const [parent, data] of parentMap) {
+    // Only create group if there's more than 1 child with data
+    if (data.children.length === 1) {
+      standalone.push({
+        name: data.children[0].category,
+        total: data.children[0].total,
+        count: data.children[0].count,
+        color: getColor(data.children[0].category),
+        isParent: false,
+      });
+    } else {
+      data.children.sort((a, b) => b.total - a.total);
+      standalone.push({
+        name: parent,
+        total: data.total,
+        count: data.count,
+        color: getColor(parent),
+        isParent: true,
+        children: data.children,
+      });
+    }
+  }
+
+  standalone.sort((a, b) => b.total - a.total);
+  return standalone;
 }
 
 interface CategoryStat { category: string; total: number; count: number; }
@@ -46,6 +113,8 @@ interface Props {
   householdId: string;
   selectedStatement: string;
   onStatementChange: (id: string) => void;
+  selectedYear: string;
+  onYearChange: (year: string) => void;
   cardholder: string;
   onCardholderChange: (cardholder: string) => void;
   onStevieMood?: (report: StevieMoodReport | null) => void;
@@ -56,13 +125,27 @@ function fmtMoney(n: number): string {
   return n.toLocaleString('en-CA', { style: 'currency', currency: 'CAD' });
 }
 
+const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] as const;
+
 function formatStmtDate(dateStr: string): string {
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const [, m, d] = dateStr.split('-');
-  return `${months[parseInt(m) - 1]} ${d}`;
+  return `${MONTHS_SHORT[parseInt(m, 10) - 1]} ${d}`;
 }
 
-const PIE_THRESHOLD = 3.5;
+/** Full date for chart tooltips (unique per statement; avoids duplicate x-axis collisions). */
+function formatStmtDateFull(dateStr: string): string {
+  const [y, m, d] = dateStr.split('-');
+  return `${MONTHS_SHORT[parseInt(m, 10) - 1]} ${parseInt(d, 10)}, ${y}`;
+}
+
+/** Compact labels for the trend x-axis when space is tight. */
+function formatStmtDateAxis(dateStr: string): string {
+  const [y, m, d] = dateStr.split('-');
+  return `${MONTHS_SHORT[parseInt(m, 10) - 1]} ${parseInt(d, 10)} '${y.slice(-2)}`;
+}
+
+/** Largest N category groups get their own slice; the rest merge into one “smaller categories” wedge (rank-based so several ~1–2% categories still appear). */
+const PIE_MAX_INDIVIDUAL_SLICES = 9;
 
 export function Dashboard({
   onCategoryClick,
@@ -70,12 +153,15 @@ export function Dashboard({
   householdId,
   selectedStatement,
   onStatementChange,
+  selectedYear,
+  onYearChange,
   cardholder,
   onCardholderChange,
   onStevieMood,
   stevieStatHighlight = null,
 }: Props) {
   const [byCategory, setByCategory] = useState<CategoryStat[]>([]);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [statements, setStatements] = useState<StatementInfo[]>([]);
   const [allTransactions, setAllTransactions] = useState<TransactionDoc[]>([]);
   const [loading, setLoading] = useState(true);
@@ -100,11 +186,22 @@ export function Dashboard({
     load();
   }, [householdId]);
 
+  // Derive available years from transaction dates
+  const availableYears = Array.from(
+    new Set(allTransactions.map((t) => t.transDate.slice(0, 4)).filter((y) => /^\d{4}$/.test(y)))
+  ).sort().reverse();
+  const showYearFilter = availableYears.length > 1;
+
+  useEffect(() => {
+    if (!showYearFilter && selectedYear) onYearChange('');
+  }, [showYearFilter, selectedYear, onYearChange]);
+
   // Compute stats from loaded data with filters applied
   const filteredTxns = allTransactions.filter((t) => {
     if (t.isCredit) return false;
     if (cardholder && t.cardholder !== cardholder) return false;
     if (selectedStatement && t.statementId !== selectedStatement) return false;
+    if (showYearFilter && selectedYear && !t.transDate.startsWith(selectedYear)) return false;
     return true;
   });
 
@@ -121,25 +218,32 @@ export function Dashboard({
       .map(([category, { total, count }]) => ({ category, total, count }))
       .sort((a, b) => b.total - a.total);
     setByCategory(cats);
-  }, [allTransactions, cardholder, selectedStatement]);
+  }, [allTransactions, cardholder, selectedStatement, selectedYear]);
 
   const totalSpending = byCategory.reduce((sum, c) => sum + c.total, 0);
 
-  // Pie data
+  // Pie data — use parent-grouped totals; show top spenders as individual slices, merge the tail
+  const groupedForPie = buildGroupedCategories(byCategory);
+  const sortedPieGroups = [...groupedForPie].sort((a, b) => b.total - a.total);
   const mainSlices: { id: string; label: string; value: number; color: string }[] = [];
   let otherTotal = 0;
   let otherCount = 0;
-  for (const c of byCategory) {
-    const pct = (c.total / totalSpending) * 100;
-    if (pct >= PIE_THRESHOLD) {
-      mainSlices.push({ id: c.category, label: c.category, value: Math.round(c.total * 100) / 100, color: getColor(c.category) });
+  for (let i = 0; i < sortedPieGroups.length; i++) {
+    const g = sortedPieGroups[i];
+    if (i < PIE_MAX_INDIVIDUAL_SLICES) {
+      mainSlices.push({
+        id: g.name,
+        label: g.name,
+        value: Math.round(g.total * 100) / 100,
+        color: g.color,
+      });
     } else {
-      otherTotal += c.total;
+      otherTotal += g.total;
       otherCount++;
     }
   }
   if (otherTotal > 0) {
-    const label = `${otherCount} smaller categories`;
+    const label = `${otherCount} smaller categor${otherCount === 1 ? 'y' : 'ies'}`;
     mainSlices.push({ id: '__grouped__', label, value: Math.round(otherTotal * 100) / 100, color: getColor('Other') });
   }
 
@@ -149,8 +253,25 @@ export function Dashboard({
     const total = allTransactions
       .filter((t) => t.statementId === s.id && !t.isCredit && (!cardholder || t.cardholder === cardholder))
       .reduce((sum, t) => sum + t.amount, 0);
-    return { id: s.id, label: formatStmtDate(s.statementDate), total: Math.round(total * 100) / 100 };
+    return {
+      id: s.id,
+      label: formatStmtDate(s.statementDate),
+      statementDate: s.statementDate,
+      total: Math.round(total * 100) / 100,
+    };
   });
+
+  const trendChartTickDates =
+    stmtTotals.length <= 7
+      ? stmtTotals.map((s) => s.statementDate)
+      : (() => {
+          const n = stmtTotals.length;
+          const maxTicks = 7;
+          const step = Math.max(1, Math.ceil((n - 1) / (maxTicks - 1)));
+          const idxs = new Set<number>([0, n - 1]);
+          for (let i = step; i < n - 1; i += step) idxs.add(i);
+          return [...idxs].sort((a, b) => a - b).map((i) => stmtTotals[i].statementDate);
+        })();
 
   const latestTotal = stmtTotals.length > 0 ? stmtTotals[stmtTotals.length - 1].total : 0;
   const prevTotal = stmtTotals.length > 1 ? stmtTotals[stmtTotals.length - 2].total : 0;
@@ -294,7 +415,11 @@ export function Dashboard({
   return (
     <div className="dashboard">
       <div className="dashboard-top-bar">
-        <div className="dashboard-controls">
+        <div
+          className={
+            showYearFilter ? 'dashboard-controls' : 'dashboard-controls dashboard-controls--two-filters'
+          }
+        >
           <FilterSelect
             value={selectedStatement}
             onChange={onStatementChange}
@@ -315,10 +440,20 @@ export function Dashboard({
             options={[
               { value: '', label: 'All Cardholders' },
               ...Array.from(new Set(allTransactions.map((t) => t.cardholder).filter(Boolean)))
-                .sort()
+                .sort((a, b) => a.localeCompare(b))
                 .map((name) => ({ value: name, label: name.split(' ')[0] || name })),
             ]}
           />
+          {showYearFilter && (
+            <FilterSelect
+              value={selectedYear}
+              onChange={onYearChange}
+              options={[
+                { value: '', label: 'All Years' },
+                ...availableYears.map((y) => ({ value: y, label: y })),
+              ]}
+            />
+          )}
         </div>
       </div>
 
@@ -392,8 +527,8 @@ export function Dashboard({
             />
             <SparkCard
               label="Top category"
-              value={byCategory[0]?.category || '--'}
-              subtitle={byCategory[0] ? fmtMoney(byCategory[0].total) : undefined}
+              value={groupedForPie.length > 0 ? groupedForPie[0].name : '--'}
+              subtitle={groupedForPie.length > 0 ? fmtMoney(groupedForPie[0].total) : undefined}
             />
           </div>
 
@@ -408,7 +543,7 @@ export function Dashboard({
             )}
 
             {!selectedStatement && stmtTotals.length >= 2 && (
-              <div className="chart-card">
+              <div className="chart-card chart-card--overflow-visible">
                 <h3>Spending Trend</h3>
                 <div
                   className="trend-chart-wrap"
@@ -422,17 +557,28 @@ export function Dashboard({
                   <ResponsiveLine
                     data={[{
                       id: 'Spending',
-                      data: stmtTotals.map((s) => ({ x: s.label, y: s.total })),
+                      data: stmtTotals.map((s) => ({ x: s.statementDate, y: s.total })),
                     }]}
-                    margin={{ top: 10, right: 20, bottom: 20, left: 55 }}
+                    margin={{ top: 10, right: 28, bottom: 72, left: 58 }}
                     xScale={{ type: 'point' }}
                     yScale={{ type: 'linear', min: 0, max: 'auto' }}
-                    curve="natural"
+                    curve="monotoneX"
                     colors={[isDark ? '#8b7fd4' : '#7b6fc4']}
                     lineWidth={2.5}
                     theme={nivoTheme}
-                    axisLeft={{ format: (v) => `$${Number(v).toLocaleString()}`, tickSize: 0, tickPadding: 6, tickValues: 5 }}
-                    axisBottom={null}
+                    axisLeft={{
+                      format: (v) => `$${Number(v).toLocaleString()}`,
+                      tickSize: 0,
+                      tickPadding: 8,
+                      tickValues: 5,
+                    }}
+                    axisBottom={{
+                      tickSize: 0,
+                      tickPadding: 14,
+                      tickRotation: -32,
+                      tickValues: trendChartTickDates,
+                      format: (v) => formatStmtDateAxis(String(v)),
+                    }}
                     gridYValues={5}
                     enableGridX={false}
                     enablePoints={false}
@@ -451,11 +597,15 @@ export function Dashboard({
                     }]}
                     fill={[{ match: '*', id: 'areaGradient' }]}
                     useMesh={true}
-                    sliceTooltip={({ slice }) => (
-                      <div className="nivo-tip">
-                        {String(slice.points[0].data.xFormatted)}: <strong>{fmtMoney(Number(slice.points[0].data.y))}</strong>
-                      </div>
-                    )}
+                    sliceTooltip={({ slice }) => {
+                      const xRaw = slice.points[0].data.x;
+                      const iso = typeof xRaw === 'string' ? xRaw : String(xRaw);
+                      return (
+                        <div className="nivo-tip">
+                          {formatStmtDateFull(iso)}: <strong>{fmtMoney(Number(slice.points[0].data.y))}</strong>
+                        </div>
+                      );
+                    }}
                   />
                   {trendHoverX !== null && (
                     <div className="trend-hover-line" style={{ left: `${trendHoverX}px` }} />
@@ -513,7 +663,7 @@ export function Dashboard({
                   borderWidth={0}
                   theme={nivoTheme}
                   enableArcLinkLabels={false}
-                  arcLabelsSkipAngle={12}
+                  arcLabelsSkipAngle={18}
                   arcLabelsTextColor="#ffffff"
                   arcLabel={(d) => `${((d.arc.endAngle - d.arc.startAngle) / (2 * Math.PI) * 100).toFixed(0)}%`}
                   tooltip={({ datum }) => (
@@ -550,24 +700,85 @@ export function Dashboard({
           <div className="category-breakdown">
             <h3>Category Breakdown</h3>
             <div className="category-bars">
-              {byCategory.map((cat) => {
-                const color = getColor(cat.category);
-                const pct = (cat.total / totalSpending) * 100;
-                return (
-                  <div key={cat.category} className="category-bar-row clickable" onClick={() => onCategoryClick(cat.category)}>
-                    <div className="category-bar-label">
-                      <span className="cat-dot" style={{ background: color }} />
-                      {cat.category}
+              {(() => {
+                const grouped = buildGroupedCategories(byCategory);
+                const maxTotal = grouped.length > 0 ? grouped[0].total : 1;
+                return grouped.map((group) => {
+                  const pct = (group.total / totalSpending) * 100;
+                  const isExpanded = expandedGroups.has(group.name);
+
+                  if (!group.isParent) {
+                    return (
+                      <div key={group.name} className="category-bar-row clickable" onClick={() => onCategoryClick(group.name)}>
+                        <div className="category-bar-label">
+                          <span className="cat-dot" style={{ background: group.color }} />
+                          {group.name}
+                        </div>
+                        <div className="category-bar-track">
+                          <div className="category-bar-fill" style={{ width: `${(group.total / maxTotal) * 100}%`, background: group.color }} />
+                        </div>
+                        <div className="category-bar-amount">{fmtMoney(group.total)}</div>
+                        <div className="category-bar-pct">{pct.toFixed(1)}%</div>
+                        <div className="category-bar-count">{group.count} txn{group.count !== 1 ? 's' : ''}</div>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div key={group.name} className="category-group">
+                      <div
+                        className="category-bar-row clickable category-parent-row"
+                        onClick={() => {
+                          setExpandedGroups((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(group.name)) next.delete(group.name);
+                            else next.add(group.name);
+                            return next;
+                          });
+                        }}
+                      >
+                        <div className="category-bar-label">
+                          <span className="cat-dot" style={{ background: group.color }} />
+                          {group.name}
+                          <span className="cat-sub-count">({group.children!.length})</span>
+                        </div>
+                        <div className="category-bar-track">
+                          <div className="category-bar-fill" style={{ width: `${(group.total / maxTotal) * 100}%`, background: group.color }} />
+                        </div>
+                        <div className="category-bar-amount">{fmtMoney(group.total)}</div>
+                        <div className="category-bar-pct">{pct.toFixed(1)}%</div>
+                        <div className="category-bar-count">{group.count} txn{group.count !== 1 ? 's' : ''}</div>
+                      </div>
+                      {isExpanded && group.children && (
+                        <div className="category-children">
+                          {group.children.map((child) => {
+                            const childPct = (child.total / totalSpending) * 100;
+                            const childColor = getColor(child.category);
+                            return (
+                              <div
+                                key={child.category}
+                                className="category-bar-row clickable category-child-row"
+                                onClick={() => onCategoryClick(child.category)}
+                              >
+                                <div className="category-bar-label">
+                                  <span className="cat-dot" style={{ background: childColor }} />
+                                  {child.category}
+                                </div>
+                                <div className="category-bar-track">
+                                  <div className="category-bar-fill" style={{ width: `${(child.total / maxTotal) * 100}%`, background: childColor }} />
+                                </div>
+                                <div className="category-bar-amount">{fmtMoney(child.total)}</div>
+                                <div className="category-bar-pct">{childPct.toFixed(1)}%</div>
+                                <div className="category-bar-count">{child.count} txn{child.count !== 1 ? 's' : ''}</div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
-                    <div className="category-bar-track">
-                      <div className="category-bar-fill" style={{ width: `${(cat.total / byCategory[0].total) * 100}%`, background: color }} />
-                    </div>
-                    <div className="category-bar-amount">{fmtMoney(cat.total)}</div>
-                    <div className="category-bar-pct">{pct.toFixed(1)}%</div>
-                    <div className="category-bar-count">{cat.count} txn{cat.count !== 1 ? 's' : ''}</div>
-                  </div>
-                );
-              })}
+                  );
+                });
+              })()}
             </div>
           </div>
 

@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { collection, getDocs, doc, updateDoc, query, where, addDoc, writeBatch, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
 import { CATEGORIES } from '../types';
 import { extractMerchantPattern } from '../lib/categorize';
+import { PARENT_CATEGORY_NAMES, transactionMatchesCategoryFilter } from '../lib/categoryGroups';
 import { SparkCard } from './ui/SparkCard';
 import { FilterSelect } from './ui/FilterSelect';
 import { reconcileBillingPeriod } from '../lib/statementPeriod';
@@ -33,6 +34,8 @@ interface Props {
   initialCategory?: string;
   initialStatement?: string;
   initialCardholder?: string;
+  initialYear?: string;
+  onYearChange?: (year: string) => void;
   householdId: string;
   onStevieMood?: (report: StevieMoodReport | null) => void;
   stevieStatHighlight?: 'good' | 'bad' | null;
@@ -71,6 +74,8 @@ export function TransactionList({
   initialCategory = '',
   initialStatement = '',
   initialCardholder = '',
+  initialYear = '',
+  onYearChange,
   householdId,
   onStevieMood,
   stevieStatHighlight = null,
@@ -81,10 +86,26 @@ export function TransactionList({
     cardholder: initialCardholder,
     confirmed: '',
     statement: initialStatement,
+    year: initialYear,
   });
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
   const [statements, setStatements] = useState<StatementInfo[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const availableYears = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          allTransactions
+            .map((t) => t.transDate.slice(0, 4))
+            .filter((y) => /^\d{4}$/.test(y))
+        )
+      )
+        .sort()
+        .reverse(),
+    [allTransactions]
+  );
+  const showYearFilter = availableYears.length > 1;
 
   const fetchTransactions = async () => {
     const snap = await getDocs(collection(db, 'households', householdId, 'transactions'));
@@ -110,16 +131,27 @@ export function TransactionList({
     load();
   }, []);
 
+  useEffect(() => {
+    if (allTransactions.length === 0) return;
+    if (!showYearFilter && filter.year) {
+      setFilter((f) => ({ ...f, year: '' }));
+      onYearChange?.('');
+    }
+  }, [allTransactions.length, showYearFilter, filter.year, onYearChange]);
+
   // Filter client-side to avoid composite index requirements
   useEffect(() => {
     let filtered = allTransactions;
-    if (filter.category) filtered = filtered.filter((t) => t.category === filter.category);
+    if (filter.category) {
+      filtered = filtered.filter((t) => transactionMatchesCategoryFilter(t.category, filter.category));
+    }
     if (filter.cardholder) filtered = filtered.filter((t) => t.cardholder === filter.cardholder);
     if (filter.confirmed === 'true') filtered = filtered.filter((t) => t.confirmed);
     if (filter.confirmed === 'false') filtered = filtered.filter((t) => !t.confirmed);
     if (filter.statement) filtered = filtered.filter((t) => t.statementId === filter.statement);
+    if (showYearFilter && filter.year) filtered = filtered.filter((t) => t.transDate.startsWith(filter.year));
     setTransactions(filtered);
-  }, [allTransactions, filter]);
+  }, [allTransactions, filter, showYearFilter]);
 
   const updateCategory = async (id: string, description: string, newCategory: string) => {
     const pattern = extractMerchantPattern(description);
@@ -204,7 +236,7 @@ export function TransactionList({
     .reduce((sum, t) => sum + t.amount, 0);
 
   const matchesNonStatementFilters = (t: Transaction) => {
-    if (filter.category && t.category !== filter.category) return false;
+    if (filter.category && !transactionMatchesCategoryFilter(t.category, filter.category)) return false;
     if (filter.cardholder && t.cardholder !== filter.cardholder) return false;
     if (filter.confirmed === 'true' && !t.confirmed) return false;
     if (filter.confirmed === 'false' && t.confirmed) return false;
@@ -252,7 +284,11 @@ export function TransactionList({
       : 'All charges';
 
   const primarySubtitleParts: string[] = [];
-  if (filter.category) primarySubtitleParts.push(filter.category);
+  if (filter.category) {
+    primarySubtitleParts.push(
+      PARENT_CATEGORY_NAMES.includes(filter.category) ? `${filter.category} (all)` : filter.category
+    );
+  }
   if (filter.cardholder) primarySubtitleParts.push(filter.cardholder.split(' ')[0] || filter.cardholder);
   if (filter.confirmed === 'true') primarySubtitleParts.push('Confirmed');
   if (filter.confirmed === 'false') primarySubtitleParts.push('Unconfirmed');
@@ -280,7 +316,13 @@ export function TransactionList({
 
   return (
     <div className="transactions-page">
-      <div className="filters transactions-filters-top">
+      <div
+        className={
+          showYearFilter
+            ? 'filters transactions-filters-top'
+            : 'filters transactions-filters-top transactions-filters-top--no-year'
+        }
+      >
         <FilterSelect
           value={filter.statement}
           onChange={(value) => setFilter({ ...filter, statement: value })}
@@ -300,26 +342,34 @@ export function TransactionList({
           onChange={(value) => setFilter({ ...filter, category: value })}
           options={[
             { value: '', label: 'All Categories' },
-            ...CATEGORIES.map((c) => ({ value: c, label: c })),
+            ...[
+              ...PARENT_CATEGORY_NAMES.map((p) => ({ value: p, label: `${p} (all)` })),
+              ...CATEGORIES.map((c) => ({ value: c, label: c })),
+            ].sort((a, b) => a.label.localeCompare(b.label)),
           ]}
         />
+        {showYearFilter && (
+          <FilterSelect
+            className="filter-pill"
+            value={filter.year}
+            onChange={(value) => {
+              setFilter({ ...filter, year: value });
+              onYearChange?.(value);
+            }}
+            options={[
+              { value: '', label: 'All Years' },
+              ...availableYears.map((y) => ({ value: y, label: y })),
+            ]}
+          />
+        )}
         <FilterSelect
           value={filter.cardholder}
           onChange={(value) => setFilter({ ...filter, cardholder: value })}
           options={[
             { value: '', label: 'All Cardholders' },
             ...Array.from(new Set(allTransactions.map((t) => t.cardholder).filter(Boolean)))
-              .sort()
+              .sort((a, b) => a.localeCompare(b))
               .map((name) => ({ value: name, label: name.split(' ')[0] || name })),
-          ]}
-        />
-        <FilterSelect
-          value={filter.confirmed}
-          onChange={(value) => setFilter({ ...filter, confirmed: value })}
-          options={[
-            { value: '', label: 'All Status' },
-            { value: 'false', label: 'Unconfirmed' },
-            { value: 'true', label: 'Confirmed' },
           ]}
         />
       </div>
@@ -432,7 +482,7 @@ export function TransactionList({
                       }}
                     >
                       <option value="" disabled>Change category...</option>
-                      {CATEGORIES.map((c) => (
+                      {[...CATEGORIES].sort((a, b) => a.localeCompare(b)).map((c) => (
                         <option key={c} value={c}>{c}</option>
                       ))}
                     </select>

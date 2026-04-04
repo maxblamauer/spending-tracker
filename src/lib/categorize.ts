@@ -133,7 +133,7 @@ const KEYWORDS: Record<string, KeywordRule[]> = {
     { kw: 'ev charging', w: 8 },
     { kw: 'chargepoint', w: 8 },
   ],
-  'Transportation': [
+  'Rides & Transit': [
     { kw: 'uber canada/ubertrip', w: 12 },
     { kw: 'ubertrip', w: 10 },
     { kw: 'lyft', w: 10 },
@@ -229,7 +229,7 @@ const KEYWORDS: Record<string, KeywordRule[]> = {
     { kw: 'liquor', w: 8 },
     { kw: 'distill', w: 6 },
   ],
-  'Health & Pharmacy': [
+  'Health': [
     { kw: 'shoppers drug', w: 10 },
     { kw: 'rexall', w: 10 },
     { kw: 'pharmasave', w: 10 },
