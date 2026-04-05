@@ -289,10 +289,10 @@ export function Upload({ onUploaded, householdId }: Props) {
                             const r = reconcileBillingPeriod(s.periodStart, s.periodEnd);
                             return (
                               <tr key={s.id}>
-                                <td>{formatStmtDate(s.statementDate)}</td>
-                                <td>{r.periodStart} to {r.periodEnd}</td>
-                                <td>{fmtMoney(s.totalBalance)}</td>
-                                <td>{s.filename}</td>
+                                <td className="stmt-cell-date">{formatStmtDate(s.statementDate)}</td>
+                                <td className="stmt-cell-period">{r.periodStart} to {r.periodEnd}</td>
+                                <td className="stmt-cell-balance">{fmtMoney(s.totalBalance)}</td>
+                                <td className="stmt-cell-file">{s.filename}</td>
                                 <td className="mapping-cell-actions">
                                   <button
                                     type="button"
@@ -348,10 +348,10 @@ export function Upload({ onUploaded, householdId }: Props) {
                           const r = reconcileBillingPeriod(s.periodStart, s.periodEnd);
                           return (
                             <tr key={s.id}>
-                              <td>{formatStmtDate(s.statementDate)}</td>
-                              <td>{r.periodStart} to {r.periodEnd}</td>
-                              <td>{fmtMoney(s.totalBalance)}</td>
-                              <td>{s.filename}</td>
+                              <td className="stmt-cell-date">{formatStmtDate(s.statementDate)}</td>
+                              <td className="stmt-cell-period">{r.periodStart} to {r.periodEnd}</td>
+                              <td className="stmt-cell-balance">{fmtMoney(s.totalBalance)}</td>
+                              <td className="stmt-cell-file">{s.filename}</td>
                               <td className="mapping-cell-actions">
                                 <button
                                   type="button"

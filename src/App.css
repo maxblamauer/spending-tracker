@@ -1651,22 +1651,60 @@ tr:hover {
     display: none;
   }
 
-  /* Statements table */
+  /* Statements table — card layout on mobile */
   .statements-table thead {
     display: none;
   }
 
   .statements-table tbody tr {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px 12px;
-    padding: 10px 0;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 2px 12px;
+    padding: 12px 14px;
     border-bottom: 1px solid var(--border);
   }
 
   .statements-table td {
     padding: 0;
     border: none;
+  }
+
+  /* Row 1: period (left) + balance (right) */
+  .statements-table td.stmt-cell-period {
+    grid-column: 1;
+    font-weight: 600;
+    font-size: 14px;
+  }
+
+  .statements-table td.stmt-cell-balance {
+    grid-column: 2;
+    grid-row: 1;
+    text-align: right;
+    font-weight: 600;
+    font-size: 14px;
+  }
+
+  /* Row 2: date (left) + remove (right) */
+  .statements-table td.stmt-cell-date {
+    grid-column: 1;
+    grid-row: 2;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  .statements-table td.stmt-cell-file {
+    display: none;
+  }
+
+  .statements-table .mapping-cell-actions {
+    grid-column: 2;
+    grid-row: 2;
+    align-self: center;
+  }
+
+  /* Upload action row spans full width */
+  .statements-table td.table-action-row {
+    grid-column: 1 / -1;
   }
 
   /* Mappings tables — card rows like Transactions index */
