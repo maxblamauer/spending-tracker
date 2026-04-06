@@ -545,6 +545,36 @@ body {
   font-weight: 600;
 }
 
+.transactions-table .txn-delete-col,
+.transactions-table .txn-delete-cell {
+  width: 2rem;
+  text-align: center;
+  padding: 0 4px;
+}
+
+.btn-icon-delete {
+  background: none;
+  border: none;
+  outline: none;
+  box-shadow: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  opacity: 0;
+  padding: 4px;
+  line-height: 1;
+  transition: opacity 0.15s ease, color 0.15s ease;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.transactions-table tbody tr:hover .btn-icon-delete {
+  opacity: 1;
+}
+
+.btn-icon-delete:hover {
+  color: var(--red);
+}
+
 .transactions-header {
   display: flex;
   justify-content: space-between;
@@ -1801,6 +1831,10 @@ tr:hover {
     justify-self: end;
     align-self: center;
     text-align: right;
+  }
+
+  .transactions-table .txn-delete-cell {
+    display: none;
   }
 
   .transactions-table .actions-cell {

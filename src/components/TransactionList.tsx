@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { collection, getDocs, doc, updateDoc, query, where, addDoc, writeBatch, orderBy } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, deleteDoc, query, where, addDoc, writeBatch, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
 import { CATEGORIES } from '../types';
 import { extractMerchantPattern } from '../lib/categorize';
@@ -133,7 +133,11 @@ export function TransactionList({
     const snap = await getDocs(
       query(collection(db, 'households', householdId, 'statements'), orderBy('statementDate', 'desc'))
     );
-    setStatements(snap.docs.map((d) => ({ id: d.id, ...d.data() } as StatementInfo)));
+    setStatements(
+      snap.docs
+        .map((d) => ({ id: d.id, ...d.data() } as StatementInfo))
+        .filter((s) => s.periodStart && s.periodEnd)
+    );
   };
 
   const fetchCardProfiles = async () => {
@@ -192,6 +196,23 @@ export function TransactionList({
 
   const [editingPartialPay, setEditingPartialPay] = useState<string | null>(null);
   const [partialPayInput, setPartialPayInput] = useState('');
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+
+  const confirmDeleteTransaction = async () => {
+    if (!deleteTargetId) return;
+    setDeleteBusy(true);
+    try {
+      await deleteDoc(doc(db, 'households', householdId, 'transactions', deleteTargetId));
+      setDeleteTargetId(null);
+      fetchTransactions();
+      onUpdate();
+    } catch (err) {
+      console.error('Delete transaction error:', err);
+    } finally {
+      setDeleteBusy(false);
+    }
+  };
 
   const updateStatus = async (id: string, description: string, status: 'confirmed' | 'unconfirmed' | 'reimbursed' | 'partial') => {
     const txnRef = doc(db, 'households', householdId, 'transactions', id);
@@ -558,6 +579,7 @@ export function TransactionList({
               <th style={{ textAlign: 'center' }}>Amount</th>
               <th>Category</th>
               <th>Status</th>
+              <th className="txn-delete-col"></th>
             </tr>
           </thead>
           <tbody>
@@ -622,6 +644,22 @@ export function TransactionList({
                     </select>
                   </span>
                 </td>
+                <td className="txn-delete-cell">
+                  <button
+                    type="button"
+                    className="btn-icon-delete"
+                    title="Remove transaction"
+                    onClick={() => setDeleteTargetId(txn.id)}
+                  >
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="3 6 5 6 21 6" />
+                      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                      <path d="M10 11v6" />
+                      <path d="M14 11v6" />
+                      <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                    </svg>
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -671,6 +709,39 @@ export function TransactionList({
             <div className="edit-card-panel-actions">
               <button className="btn" onClick={() => setEditingPartialPay(null)}>Cancel</button>
               <button className="btn btn-save" onClick={() => savePartialPay(editingPartialPay!)}>Save</button>
+            </div>
+          </Modal>
+        );
+      })()}
+      {(() => {
+        const deleteTxn = deleteTargetId ? allTransactions.find((t) => t.id === deleteTargetId) : null;
+        return (
+          <Modal
+            open={deleteTargetId !== null}
+            onClose={() => !deleteBusy && setDeleteTargetId(null)}
+            title="Remove transaction"
+            closeOnBackdropClick={!deleteBusy}
+            showCloseButton={!deleteBusy}
+          >
+            <ModalBodyPanel>
+              <p className="modal-confirm-detail">
+                {deleteTxn
+                  ? `"${deleteTxn.description}" (${formatTxnAmount(deleteTxn.amount, deleteTxn.isCredit)}) will be permanently removed.`
+                  : 'This transaction will be permanently removed.'}
+              </p>
+            </ModalBodyPanel>
+            <div className="edit-card-panel-actions">
+              <button type="button" className="btn" disabled={deleteBusy} onClick={() => setDeleteTargetId(null)}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-destructive"
+                disabled={deleteBusy}
+                onClick={() => void confirmDeleteTransaction()}
+              >
+                {deleteBusy ? 'Removing…' : 'Remove'}
+              </button>
             </div>
           </Modal>
         );

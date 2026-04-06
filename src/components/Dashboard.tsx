@@ -170,7 +170,9 @@ export function Dashboard({
       const stmtSnap = await getDocs(
         query(collection(db, 'households', householdId, 'statements'), orderBy('statementDate', 'desc'))
       );
-      const stmts = stmtSnap.docs.map((d) => ({ id: d.id, ...d.data() } as StatementInfo));
+      const stmts = stmtSnap.docs
+        .map((d) => ({ id: d.id, ...d.data() } as StatementInfo))
+        .filter((s) => s.periodStart && s.periodEnd);
       setStatements(stmts);
 
       // Load all transactions
