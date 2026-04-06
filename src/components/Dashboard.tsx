@@ -244,17 +244,6 @@ export function Dashboard({
 
   const totalSpending = byCategory.reduce((sum, c) => sum + c.total, 0);
 
-  // Net total spending (charges minus non-Payment credits) for display in the summary card
-  const totalCredits = allTransactions.filter((t) => {
-    if (!t.isCredit || t.category === 'Payment') return false;
-    if (cardholder && t.cardholder !== cardholder) return false;
-    if (selectedCard && t.cardProfileId !== selectedCard) return false;
-    if (selectedStatement && t.statementId !== selectedStatement) return false;
-    if (showYearFilter && selectedYear && !t.transDate.startsWith(selectedYear)) return false;
-    return true;
-  }).reduce((sum, t) => sum + t.amount, 0);
-  const netTotalSpending = totalSpending - totalCredits;
-
   // Pie data — use parent-grouped totals; show top spenders as individual slices, merge the tail
   const groupedForPie = buildGroupedCategories(byCategory);
   const sortedPieGroups = [...groupedForPie].sort((a, b) => b.total - a.total);
@@ -393,27 +382,15 @@ export function Dashboard({
       })
     : sortedStmts;
 
-  /** Match credits for the same card/cardholder/year scope (excluding Payment credits). */
-  const creditMatchesCardScope = (t: TransactionDoc) => {
-    if (!t.isCredit || t.category === 'Payment') return false;
-    if (cardholder && t.cardholder !== cardholder) return false;
-    if (selectedCard && t.cardProfileId !== selectedCard) return false;
-    if (showYearFilter && selectedYear && !t.transDate.startsWith(selectedYear)) return false;
-    return true;
-  };
-
   const stmtTotals = chartStmts.map((s) => {
-    const charges = allTransactions
+    const total = allTransactions
       .filter((t) => t.statementId === s.id && txnMatchesCardScope(t))
-      .reduce((sum, t) => sum + t.amount, 0);
-    const credits = allTransactions
-      .filter((t) => t.statementId === s.id && creditMatchesCardScope(t))
       .reduce((sum, t) => sum + t.amount, 0);
     return {
       id: s.id,
       label: offsetStatementLabel(s.statementDate, statementMonthOffset),
       statementDate: s.statementDate,
-      total: Math.round((charges - credits) * 100) / 100,
+      total: Math.round(total * 100) / 100,
     };
   });
 
@@ -459,6 +436,29 @@ export function Dashboard({
     ? billingPeriodInclusiveDays(focusStmt.periodStart, focusStmt.periodEnd)
     : 1;
 
+  // Compute refunds for the focused statement/view to show net spend
+  const focusCredits = allTransactions
+    .filter((t) => {
+      if (!t.isCredit || t.category === 'Payment') return false;
+      if (cardholder && t.cardholder !== cardholder) return false;
+      if (selectedCard && t.cardProfileId !== selectedCard) return false;
+      if (selectedStatement && t.statementId !== selectedStatement) return false;
+      if (showYearFilter && selectedYear && !t.transDate.startsWith(selectedYear)) return false;
+      return true;
+    })
+    .reduce((sum, t) => sum + t.amount, 0);
+  const focusReimbursed = filteredCardTxns
+    .filter((t) => {
+      if (selectedStatement && t.statementId !== selectedStatement) return false;
+      return t.reimbursed || (t.partialPayAmount != null && t.partialPayAmount > 0);
+    })
+    .reduce((sum, t) => {
+      if (t.reimbursed) return sum + t.amount;
+      return sum + (t.amount - t.partialPayAmount!);
+    }, 0);
+  const focusTotalRefunds = focusCredits + focusReimbursed;
+  const focusNetSpend = (selectedStatement ? focusTotal : totalSpending) - focusTotalRefunds;
+
   const stmtsWithPeriod = chartStmts.filter((s) => s.periodStart && s.periodEnd);
   const allStatementsSpanDays =
     stmtsWithPeriod.length === 0
@@ -475,7 +475,7 @@ export function Dashboard({
       ? focusTotal / focusPeriodDays
       : 0
     : chartStmts.length > 0
-      ? netTotalSpending / allStatementsSpanDays
+      ? totalSpending / allStatementsSpanDays
       : 0;
 
   const dailySpending = selectedStatement
@@ -683,8 +683,10 @@ export function Dashboard({
                   ? focusIdx >= 0
                     ? fmtMoney(focusTotal)
                     : '$0.00'
-                  : fmtMoney(netTotalSpending)
+                  : fmtMoney(totalSpending)
               }
+              subtitle={focusTotalRefunds > 0 ? `Net spend: ${fmtMoney(focusNetSpend)}` : undefined}
+              subtitleColor={focusTotalRefunds > 0 ? 'var(--green)' : undefined}
               change={
                 // Hide trend when viewing all cards with multiple cards (cross-card comparison is misleading)
                 showCardFilter && !selectedCard
@@ -732,31 +734,25 @@ export function Dashboard({
                 .filter((s) => offsetStatementLabel(s.statementDate, statementMonthOffset) === selectedMonthLabel)
                 .map((s) => s.id)
             );
-            const allCardsMonthlyCharges = allTransactions
+            const allCardsMonthlySpending = allTransactions
               .filter((t) => !t.isCredit && sameMonthStmtIds.has(t.statementId))
-              .reduce((sum, t) => {
-                if (t.reimbursed) return sum; // fully reimbursed — don't count
-                if (t.partialPayAmount != null && t.partialPayAmount > 0) return sum + t.partialPayAmount;
-                return sum + t.amount;
-              }, 0);
-            const allCardsMonthlyCredits = allTransactions
-              .filter((t) => t.isCredit && t.category !== 'Payment' && sameMonthStmtIds.has(t.statementId))
               .reduce((sum, t) => sum + t.amount, 0);
-            const allCardsMonthlySpending = allCardsMonthlyCharges - allCardsMonthlyCredits;
             const cardPortion = selectedMonthLabel ? allCardsMonthlySpending : (focusIdx >= 0 ? focusTotal : 0);
             const totalMonthly = cardPortion + fixedMonthly;
             const totalIncome = incomeSources.reduce((sum, s) => sum + s.amount, 0);
-            const surplus = totalIncome - totalMonthly;
-            const creditAmount = allTransactions
-              .filter((t) => t.isCredit && t.category !== 'Payment' && sameMonthStmtIds.has(t.statementId))
-              .reduce((sum, t) => sum + t.amount, 0);
             const reimbursedAmount = allTransactions
               .filter((t) => !t.isCredit && sameMonthStmtIds.has(t.statementId) && (t.reimbursed || (t.partialPayAmount != null && t.partialPayAmount > 0)))
               .reduce((sum, t) => {
                 if (t.reimbursed) return sum + t.amount;
                 return sum + (t.amount - t.partialPayAmount!);
               }, 0);
+            const creditAmount = allTransactions
+              .filter((t) => t.isCredit && t.category !== 'Payment' && sameMonthStmtIds.has(t.statementId))
+              .reduce((sum, t) => sum + t.amount, 0);
             const totalRefunds = creditAmount + reimbursedAmount;
+            const surplus = totalIncome - totalMonthly + totalRefunds;
+
+            const netSpend = totalMonthly - totalRefunds;
 
             return (
               <div className="stats-summary stats-summary--5">
@@ -773,9 +769,9 @@ export function Dashboard({
                   subtitle={`${fixedExpenses.filter((e) => !e.endDate || e.endDate >= new Date().toISOString().slice(0, 10)).length} recurring`}
                 />
                 <SparkCard
-                  label="Total monthly spending"
+                  label="Total spending"
                   value={fmtMoney(totalMonthly)}
-                  subtitle={sameMonthStmtIds.size > 1 ? 'All cards + fixed expenses' : 'Cards + fixed expenses'}
+                  subtitle={sameMonthStmtIds.size > 1 ? 'All cards + fixed' : 'Cards + fixed'}
                 />
                 <SparkCard
                   label="Refunds & reimbursements"
@@ -788,7 +784,10 @@ export function Dashboard({
                     label="Monthly surplus"
                     value={fmtMoney(Math.abs(surplus))}
                     valueColor={surplus >= 0 ? 'var(--green)' : 'var(--red)'}
-                    subtitle={surplus >= 0 ? 'Left over after spending' : 'Over budget'}
+                    subtitle={surplus >= 0
+                      ? sameMonthStmtIds.size > 1 ? 'All cards combined' : 'Left over after spending'
+                      : sameMonthStmtIds.size > 1 ? 'Over budget · all cards' : 'Over budget'
+                    }
                   />
                 )}
               </div>

@@ -501,11 +501,24 @@ export function TransactionList({
         />
       </div>
       <div className="transactions-toolbar">
-        <div className="stats-summary stats-summary--5">
+        <div className="stats-summary">
           <SparkCard
             label={primaryLabel}
             value={fmtMoney(currentStatementSpending)}
-            subtitle={primarySubtitle}
+            subtitle={totalRefunds > 0 ? `Net spend: ${fmtMoney(currentStatementSpending - totalRefunds)}` : primarySubtitle}
+            subtitleColor={totalRefunds > 0 ? 'var(--green)' : undefined}
+          />
+          <SparkCard
+            label={previousLabel}
+            value={prevStatementSpending !== null ? fmtMoney(prevStatementSpending) : '$0.00'}
+            change={filter.statement && prevStatementSpending !== null ? trendPct : undefined}
+            invertColor
+            stevieHighlight={stevieStatHighlight}
+          />
+          <SparkCard
+            label="Avg charge"
+            value={chargeCount > 0 ? fmtMoney(avgCharge) : '$0.00'}
+            subtitle={chargeCount > 0 ? `Across ${chargeCount} charge${chargeCount !== 1 ? 's' : ''}` : 'No charges in view'}
           />
           <SparkCard
             label="Refunds & reimbursements"
@@ -518,23 +531,6 @@ export function TransactionList({
                   ? 'In filtered rows'
                   : undefined
             }
-          />
-          <SparkCard
-            label="Net spending"
-            value={fmtMoney(Math.max(0, currentStatementSpending - totalRefunds))}
-            valueColor="var(--text)"
-          />
-          <SparkCard
-            label="Avg charge"
-            value={chargeCount > 0 ? fmtMoney(avgCharge) : '$0.00'}
-            subtitle={chargeCount > 0 ? `Across ${chargeCount} charge${chargeCount !== 1 ? 's' : ''}` : 'No charges in view'}
-          />
-          <SparkCard
-            label={previousLabel}
-            value={prevStatementSpending !== null ? fmtMoney(prevStatementSpending) : '$0.00'}
-            change={filter.statement && prevStatementSpending !== null ? trendPct : undefined}
-            invertColor
-            stevieHighlight={stevieStatHighlight}
           />
         </div>
       </div>

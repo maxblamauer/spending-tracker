@@ -3,6 +3,7 @@ interface SparkCardProps {
   value: string;
   change?: number;
   subtitle?: string;
+  subtitleColor?: string;
   invertColor?: boolean;
   valueColor?: string;
   changeTooltip?: string;
@@ -17,6 +18,7 @@ export function SparkCard({
   value,
   change,
   subtitle,
+  subtitleColor,
   invertColor,
   valueColor,
   changeTooltip,
@@ -67,7 +69,7 @@ export function SparkCard({
             {pctInner}
           </div>
         )}
-        {subtitle && <div className="spark-card-subtitle">{subtitle}</div>}
+        {subtitle && <div className="spark-card-subtitle" style={subtitleColor ? { color: subtitleColor } : undefined}>{subtitle}</div>}
       </div>
     </div>
   );
