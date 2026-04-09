@@ -21,6 +21,8 @@ interface Props {
   householdId: string;
   blurAmounts: boolean;
   onBlurAmountsChange: (value: boolean) => void;
+  excludeReimbursed: boolean;
+  onExcludeReimbursedChange: (value: boolean) => void;
   statementMonthOffset: number;
   onStatementMonthOffsetChange: (value: number) => void;
   householdName: string;
@@ -46,7 +48,7 @@ interface GenerateResult {
 
 type AddCardStep = 'idle' | 'label' | 'upload' | 'processing' | 'done';
 
-export function MappingsManager({ householdId, blurAmounts, onBlurAmountsChange, statementMonthOffset, onStatementMonthOffsetChange, householdName, inviteCode, theme, onThemeChange, onLogout, onDeleteAccount, userName }: Props) {
+export function MappingsManager({ householdId, blurAmounts, onBlurAmountsChange, excludeReimbursed, onExcludeReimbursedChange, statementMonthOffset, onStatementMonthOffsetChange, householdName, inviteCode, theme, onThemeChange, onLogout, onDeleteAccount, userName }: Props) {
   const [mappings, setMappings] = useState<Mapping[]>([]);
   const [cardProfiles, setCardProfiles] = useState<(CardProfile & { id: string })[]>([]);
   const [addCardStep, setAddCardStep] = useState<AddCardStep>('idle');
@@ -627,6 +629,16 @@ export function MappingsManager({ householdId, blurAmounts, onBlurAmountsChange,
               <td className="mapping-cell-actions">
                 <label className="fixed-expense-toggle">
                   <input type="checkbox" checked={blurAmounts} onChange={(e) => onBlurAmountsChange(e.target.checked)} />
+                  <span className="fixed-expense-toggle-track" />
+                </label>
+              </td>
+            </tr>
+            <tr>
+              <td className="mapping-cell-primary"><strong>Exclude reimbursed</strong></td>
+              <td className="mapping-cell-meta">Hide fully reimbursed transactions and show only the paid amount for partial reimbursements</td>
+              <td className="mapping-cell-actions">
+                <label className="fixed-expense-toggle">
+                  <input type="checkbox" checked={excludeReimbursed} onChange={(e) => onExcludeReimbursedChange(e.target.checked)} />
                   <span className="fixed-expense-toggle-track" />
                 </label>
               </td>

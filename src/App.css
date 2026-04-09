@@ -1217,12 +1217,7 @@ tr:hover {
 
 /* Monthly summary */
 .monthly-summary-compact {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 0;
   margin-bottom: 24px;
-  overflow: hidden;
 }
 
 .monthly-summary-compact-title {
@@ -1240,19 +1235,19 @@ tr:hover {
 }
 
 .monthly-summary-grid--sub {
-  border-top: 1px solid var(--border);
+  margin-top: 12px;
 }
 
 .monthly-summary-grid {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  border-top: 1px solid var(--border);
   gap: 0 12px;
-  padding: 8px 12px 12px;
+  padding: 0;
 }
 
 .monthly-summary-grid--4 {
   grid-template-columns: repeat(4, 1fr);
+  border-top: none;
 }
 
 .monthly-summary-cell {
@@ -1262,8 +1257,10 @@ tr:hover {
   padding: 16px 20px 18px;
   cursor: default;
   border-left: 3px solid var(--cell-accent, #7b6fc4);
-  border-radius: 6px;
-  background: var(--cell-tint, transparent);
+  border-radius: var(--radius);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--cell-accent, #7b6fc4);
   transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
 }
 
@@ -1686,15 +1683,24 @@ tr:hover {
     padding: 0;
   }
 
+  .monthly-summary-compact {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
   .monthly-summary-cell {
     flex-direction: row;
+    flex-wrap: wrap;
     justify-content: space-between;
     align-items: baseline;
     padding: 10px 14px;
-    gap: 8px;
+    gap: 4px 8px;
     border-left: 3px solid var(--cell-accent, #7b6fc4);
     border-radius: 0;
     background: transparent;
+    border: none;
     --cell-tint: transparent;
   }
 
@@ -1718,7 +1724,9 @@ tr:hover {
   }
 
   .monthly-summary-detail {
-    display: none;
+    display: block;
+    width: 100%;
+    font-size: 11px;
   }
 
   .monthly-summary-label {

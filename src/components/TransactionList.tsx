@@ -49,6 +49,7 @@ interface Props {
   onStevieMood?: (report: StevieMoodReport | null) => void;
   stevieStatHighlight?: 'good' | 'bad' | null;
   statementMonthOffset: number;
+  excludeReimbursed?: boolean;
 }
 
 /** YYYY-MM-DD → "Mar 3, 2026" for table / mobile cards */
@@ -89,6 +90,7 @@ export function TransactionList({
   householdId,
   onStevieMood,
   statementMonthOffset,
+  excludeReimbursed,
 }: Props) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [filter, setFilter] = useState({
@@ -165,6 +167,9 @@ export function TransactionList({
   // Filter client-side to avoid composite index requirements
   useEffect(() => {
     let filtered = allTransactions;
+    if (excludeReimbursed) {
+      filtered = filtered.filter((t) => !t.reimbursed && !(t.isCredit && t.category !== 'Payment'));
+    }
     if (filter.category) {
       filtered = filtered.filter((t) => transactionMatchesCategoryFilter(t.category, filter.category));
     }
@@ -175,7 +180,7 @@ export function TransactionList({
     if (filter.statement) filtered = filtered.filter((t) => t.statementId === filter.statement);
     if (showYearFilter && filter.year) filtered = filtered.filter((t) => t.transDate.startsWith(filter.year));
     setTransactions(filtered);
-  }, [allTransactions, filter, showYearFilter, showCardFilter]);
+  }, [allTransactions, filter, showYearFilter, showCardFilter, excludeReimbursed]);
 
   const updateCategory = async (id: string, description: string, newCategory: string) => {
     const pattern = extractMerchantPattern(description);
@@ -317,15 +322,17 @@ export function TransactionList({
   const unconfirmedCount = transactions.filter((t) => !t.confirmed).length;
   const totalAmount = transactions
     .filter((t) => !t.isCredit)
-    .reduce((sum, t) => sum + t.amount, 0);
+    .reduce((sum, t) => {
+      if (excludeReimbursed && t.partialPayAmount != null && t.partialPayAmount > 0) return sum + t.partialPayAmount;
+      return sum + t.amount;
+    }, 0);
   const creditAmount = transactions
     .filter((t) => t.isCredit && t.category !== 'Payment')
     .reduce((sum, t) => sum + t.amount, 0);
-  const reimbursedAmount = transactions
+  const reimbursedAmount = excludeReimbursed ? 0 : transactions
     .filter((t) => !t.isCredit && (t.reimbursed || (t.partialPayAmount != null && t.partialPayAmount > 0)))
     .reduce((sum, t) => {
       if (t.reimbursed) return sum + t.amount;
-      // partial pay: the difference is the reimbursed portion
       return sum + (t.amount - t.partialPayAmount!);
     }, 0);
   const totalRefunds = creditAmount + reimbursedAmount;
@@ -500,7 +507,6 @@ export function TransactionList({
       </div>
       <div className="transactions-toolbar">
         <div className="monthly-summary-compact">
-          <h4 className="monthly-summary-compact-title">Transaction Summary</h4>
           <div className="monthly-summary-grid monthly-summary-grid--4">
             <div className="monthly-summary-cell">
               <span className="monthly-summary-label">{primaryLabel}</span>
@@ -592,10 +598,14 @@ export function TransactionList({
                 <td>{txn.cardholder.split(' ')[0]}</td>
                 <td className={`amount-cell ${txn.isCredit || txn.reimbursed ? 'credit' : 'charge'}`}>
                   {txn.partialPayAmount != null && txn.partialPayAmount > 0 ? (
-                    <span className="partial-pay-amount">
-                      <span className="partial-pay-original">{formatTxnAmount(txn.amount, false)}</span>
-                      <span className="partial-pay-actual">{formatTxnAmount(txn.partialPayAmount, false)}</span>
-                    </span>
+                    excludeReimbursed ? (
+                      formatTxnAmount(txn.partialPayAmount, false)
+                    ) : (
+                      <span className="partial-pay-amount">
+                        <span className="partial-pay-original">{formatTxnAmount(txn.amount, false)}</span>
+                        <span className="partial-pay-actual">{formatTxnAmount(txn.partialPayAmount, false)}</span>
+                      </span>
+                    )
                   ) : (
                     formatTxnAmount(txn.amount, txn.isCredit)
                   )}

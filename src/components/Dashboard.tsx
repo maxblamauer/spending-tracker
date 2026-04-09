@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ResponsivePie } from '@nivo/pie';
 import { ResponsiveLine } from '@nivo/line';
 import { ResponsiveBar } from '@nivo/bar';
@@ -126,6 +126,7 @@ interface Props {
   onStevieMood?: (report: StevieMoodReport | null) => void;
   stevieStatHighlight?: 'good' | 'bad' | null;
   statementMonthOffset: number;
+  excludeReimbursed?: boolean;
 }
 
 function fmtMoney(n: number): string {
@@ -150,6 +151,7 @@ export function Dashboard({
   onCardChange,
   onStevieMood,
   statementMonthOffset,
+  excludeReimbursed,
 }: Props) {
   const [byCategory, setByCategory] = useState<CategoryStat[]>([]);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
@@ -203,9 +205,17 @@ export function Dashboard({
     load();
   }, [householdId]);
 
+  // Apply exclude-reimbursed filter: remove fully reimbursed, credits/refunds, adjust partial pays
+  const effectiveTransactions = useMemo(() => excludeReimbursed
+    ? allTransactions
+        .filter((t) => !t.reimbursed && !(t.isCredit && t.category !== 'Payment'))
+        .map((t) => t.partialPayAmount != null && t.partialPayAmount > 0 ? { ...t, amount: t.partialPayAmount } : t)
+    : allTransactions,
+  [allTransactions, excludeReimbursed]);
+
   // Derive available years from transaction dates
   const availableYears = Array.from(
-    new Set(allTransactions.map((t) => t.transDate.slice(0, 4)).filter((y) => /^\d{4}$/.test(y)))
+    new Set(effectiveTransactions.map((t) => t.transDate.slice(0, 4)).filter((y) => /^\d{4}$/.test(y)))
   ).sort().reverse();
   const showYearFilter = availableYears.length > 1;
 
@@ -216,14 +226,14 @@ export function Dashboard({
   // Compute stats from loaded data with filters applied
   const showCardFilter = cardProfiles.length > 1;
 
-  const filteredCardTxns = allTransactions.filter((t) => {
+  const filteredCardTxns = useMemo(() => effectiveTransactions.filter((t) => {
     if (t.isCredit) return false;
     if (cardholder && t.cardholder !== cardholder) return false;
     if (selectedCard && t.cardProfileId !== selectedCard) return false;
     if (selectedStatement && t.statementId !== selectedStatement) return false;
     if (showYearFilter && selectedYear && !t.transDate.startsWith(selectedYear)) return false;
     return true;
-  });
+  }), [effectiveTransactions, cardholder, selectedCard, selectedStatement, selectedYear, showYearFilter]);
 
   // Recompute byCategory whenever filters change (card charges only, no synthetic fixed expenses)
   useEffect(() => {
@@ -238,7 +248,7 @@ export function Dashboard({
       .map(([category, { total, count }]) => ({ category, total, count }))
       .sort((a, b) => b.total - a.total);
     setByCategory(cats);
-  }, [allTransactions, cardholder, selectedCard, selectedStatement, selectedYear]);
+  }, [effectiveTransactions, cardholder, selectedCard, selectedStatement, selectedYear]);
 
   const totalSpending = byCategory.reduce((sum, c) => sum + c.total, 0);
 
@@ -257,7 +267,7 @@ export function Dashboard({
       pieReimbByCategory.set(t.category, (pieReimbByCategory.get(t.category) || 0) + reimbAmt);
     }
   }
-  for (const t of allTransactions) {
+  for (const t of effectiveTransactions) {
     if (!t.isCredit || t.category === 'Payment') continue;
     if (cardholder && t.cardholder !== cardholder) continue;
     if (selectedCard && t.cardProfileId !== selectedCard) continue;
@@ -376,12 +386,12 @@ export function Dashboard({
     ? sortedStmts.filter((s) => {
         if (s.cardProfileId === selectedCard) return true;
         if (s.cardProfileId) return false;
-        return allTransactions.some((t) => t.statementId === s.id && txnMatchesCardScope(t));
+        return effectiveTransactions.some((t) => t.statementId === s.id && txnMatchesCardScope(t));
       })
     : sortedStmts;
 
   const stmtTotals = chartStmts.map((s) => {
-    const total = allTransactions
+    const total = effectiveTransactions
       .filter((t) => t.statementId === s.id && txnMatchesCardScope(t))
       .reduce((sum, t) => sum + t.amount, 0);
     return {
@@ -435,7 +445,7 @@ export function Dashboard({
     : 1;
 
   // Compute refunds for the focused statement/view to show net spend
-  const focusCredits = allTransactions
+  const focusCredits = effectiveTransactions
     .filter((t) => {
       if (!t.isCredit || t.category === 'Payment') return false;
       if (cardholder && t.cardholder !== cardholder) return false;
@@ -630,7 +640,7 @@ export function Dashboard({
             onChange={onCardholderChange}
             options={[
               { value: '', label: 'All Cardholders' },
-              ...Array.from(new Set(allTransactions.map((t) => t.cardholder).filter(Boolean)))
+              ...Array.from(new Set(effectiveTransactions.map((t) => t.cardholder).filter(Boolean)))
                 .sort((a, b) => a.localeCompare(b))
                 .map((name) => ({ value: name, label: name.split(' ')[0] || name })),
             ]}
@@ -683,13 +693,24 @@ export function Dashboard({
       ) : (
         <>
           {(() => {
-            const statsCells: { label: string; value: string; detail?: string; valueColor?: string }[] = [
+            // Compute top category by net amount (gross minus reimbursements/refunds)
+            const getGroupReimb = (g: GroupedCategory) =>
+              g.isParent && g.children
+                ? g.children.reduce((sum, c) => sum + (pieReimbByCategory.get(c.category) || 0), 0)
+                : pieReimbByCategory.get(g.name) || 0;
+            const netSortedGroups = [...groupedForPie].sort((a, b) => (b.total - getGroupReimb(b)) - (a.total - getGroupReimb(a)));
+            const topGroup = netSortedGroups.length > 0 ? netSortedGroups[0] : null;
+            const topGroupNet = topGroup ? topGroup.total - getGroupReimb(topGroup) : 0;
+
+            const statsCells: { label: string; value: string; detail?: string; detailHighlight?: string; detailHighlightColor?: string; valueColor?: string }[] = [
               {
                 label: selectedStatement ? 'Statement period' : 'Total spending',
                 value: selectedStatement
                   ? focusIdx >= 0 ? fmtMoney(focusTotal) : '$0.00'
                   : fmtMoney(totalSpending),
-                detail: focusTotalRefunds > 0 ? `Net spend: ${fmtMoney(focusNetSpend)}` : undefined,
+                detail: focusTotalRefunds > 0 ? 'Net spend: ' : undefined,
+                detailHighlight: focusTotalRefunds > 0 ? fmtMoney(focusNetSpend) : undefined,
+                detailHighlightColor: focusTotalRefunds > 0 && focusNetSpend !== focusTotal ? 'var(--green)' : undefined,
               },
               {
                 label: 'Average',
@@ -709,13 +730,13 @@ export function Dashboard({
               },
               {
                 label: 'Top category',
-                value: groupedForPie.length > 0 ? groupedForPie[0].name : '--',
-                detail: groupedForPie.length > 0 ? fmtMoney(groupedForPie[0].total) : undefined,
+                value: topGroup ? topGroup.name : '--',
+                detail: topGroup ? fmtMoney(topGroupNet) : undefined,
               },
             ];
 
             // Build monthly rows if applicable
-            let monthlyRows: { label: string; value: string; valueColor?: string; detail?: string }[] | null = null;
+            let monthlyRows: { label: string; value: string; valueColor?: string; detail?: string; detailHighlight?: string; detailHighlightColor?: string }[] | null = null;
             if (selectedStatement && fixedExpenses.length > 0) {
               const fixedMonthly = monthlyFixedTotal(fixedExpenses);
               const selectedStmtInfo = focusStmt;
@@ -727,78 +748,58 @@ export function Dashboard({
                   .filter((s) => offsetStatementLabel(s.statementDate, statementMonthOffset) === selectedMonthLabel)
                   .map((s) => s.id)
               );
-              const allCardsMonthlySpending = allTransactions
+              const allCardsMonthlySpending = effectiveTransactions
                 .filter((t) => !t.isCredit && sameMonthStmtIds.has(t.statementId))
                 .reduce((sum, t) => sum + t.amount, 0);
               const cardPortion = selectedMonthLabel ? allCardsMonthlySpending : (focusIdx >= 0 ? focusTotal : 0);
               const totalMonthly = cardPortion + fixedMonthly;
               const totalIncome = incomeSources.reduce((sum, s) => sum + s.amount, 0);
-              const reimbursedAmount = allTransactions
+              const reimbursedAmount = effectiveTransactions
                 .filter((t) => !t.isCredit && sameMonthStmtIds.has(t.statementId) && (t.reimbursed || (t.partialPayAmount != null && t.partialPayAmount > 0)))
                 .reduce((sum, t) => {
                   if (t.reimbursed) return sum + t.amount;
                   return sum + (t.amount - t.partialPayAmount!);
                 }, 0);
-              const creditAmount = allTransactions
+              const creditAmount = effectiveTransactions
                 .filter((t) => t.isCredit && t.category !== 'Payment' && sameMonthStmtIds.has(t.statementId))
                 .reduce((sum, t) => sum + t.amount, 0);
               const totalRefunds = creditAmount + reimbursedAmount;
               const surplus = totalIncome - totalMonthly + totalRefunds;
 
+              const activeFixedCount = fixedExpenses.filter((e) => !e.endDate || e.endDate >= new Date().toISOString().slice(0, 10)).length;
               monthlyRows = [];
               if (incomeSources.length > 0) {
-                monthlyRows.push({ label: 'Monthly income', value: fmtMoney(totalIncome), detail: incomeSources.map((s) => s.person).join(' + ') });
+                monthlyRows.push({ label: 'Monthly income', value: fmtMoney(totalIncome), detail: 'Surplus: ', detailHighlight: `${surplus < 0 ? '-' : ''}${fmtMoney(Math.abs(surplus))}`, detailHighlightColor: surplus >= 0 ? 'var(--green)' : 'var(--red)', valueColor: undefined });
               }
-              monthlyRows.push({
-                label: 'Fixed expenses',
-                value: fmtMoney(fixedMonthly),
-                detail: `${fixedExpenses.filter((e) => !e.endDate || e.endDate >= new Date().toISOString().slice(0, 10)).length} recurring`,
-              });
               monthlyRows.push({
                 label: 'Total spending',
                 value: fmtMoney(totalMonthly),
-                detail: sameMonthStmtIds.size > 1 ? 'All cards + fixed' : 'Cards + fixed',
+                detail: `Fixed: ${fmtMoney(fixedMonthly)}`,
               });
               monthlyRows.push({
                 label: 'Refunds',
                 value: totalRefunds > 0 ? `-${fmtMoney(totalRefunds)}` : '$0.00',
                 valueColor: totalRefunds > 0 ? 'var(--green)' : undefined,
+                detail: excludeReimbursed ? 'Excluded by setting' : undefined,
               });
-              if (incomeSources.length > 0) {
-                monthlyRows.push({
-                  label: 'Surplus',
-                  value: fmtMoney(Math.abs(surplus)),
-                  valueColor: surplus >= 0 ? 'var(--green)' : 'var(--red)',
-                  detail: surplus < 0 ? 'Over budget' : undefined,
-                });
-              }
             }
+
+            // When monthly rows exist, keep only statement period total and replace the rest with monthly stats
+            const displayCells = monthlyRows
+              ? [statsCells[0], ...monthlyRows]
+              : statsCells;
 
             return (
               <div className="monthly-summary-compact">
-                <h4 className="monthly-summary-compact-title">Statement Summary</h4>
                 <div className="monthly-summary-grid monthly-summary-grid--4">
-                  {statsCells.map((c) => (
+                  {displayCells.map((c) => (
                     <div key={c.label} className="monthly-summary-cell">
                       <span className="monthly-summary-label">{c.label}</span>
                       <span className="monthly-summary-value" style={c.valueColor ? { color: c.valueColor } : undefined}>{c.value}</span>
-                      {c.detail && <span className="monthly-summary-detail">{c.detail}</span>}
+                      {c.detail && <span className="monthly-summary-detail">{c.detail}{c.detailHighlight && <span style={c.detailHighlightColor ? { color: c.detailHighlightColor } : undefined}>{c.detailHighlight}</span>}</span>}
                     </div>
                   ))}
                 </div>
-                {monthlyRows && (
-                  <>
-                    <div className="monthly-summary-grid monthly-summary-grid--sub">
-                      {monthlyRows.map((r) => (
-                        <div key={r.label} className="monthly-summary-cell">
-                          <span className="monthly-summary-label">{r.label}</span>
-                          <span className="monthly-summary-value" style={r.valueColor ? { color: r.valueColor } : undefined}>{r.value}</span>
-                          {r.detail && <span className="monthly-summary-detail">{r.detail}</span>}
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                )}
               </div>
             );
           })()}
@@ -1032,7 +1033,7 @@ export function Dashboard({
                   }
                 }
                 // Also include credit transactions (refunds) in the hatched portion
-                for (const t of allTransactions) {
+                for (const t of effectiveTransactions) {
                   if (!t.isCredit || t.category === 'Payment') continue;
                   if (cardholder && t.cardholder !== cardholder) continue;
                   if (selectedCard && t.cardProfileId !== selectedCard) continue;

@@ -34,6 +34,7 @@ function App() {
   const [cardholder, setCardholder] = useState('');
   const [selectedCard, setSelectedCard] = useState('');
   const [blurAmounts, setBlurAmounts] = useState(() => localStorage.getItem('blurAmounts') === 'true');
+  const [excludeReimbursed, setExcludeReimbursed] = useState(() => localStorage.getItem('excludeReimbursed') === 'true');
   const [statementMonthOffset, setStatementMonthOffset] = useState(() => {
     const saved = localStorage.getItem('statementMonthOffset');
     return saved ? parseInt(saved, 10) : 0;
@@ -43,6 +44,10 @@ function App() {
   const toggleBlurAmounts = (v: boolean) => {
     setBlurAmounts(v);
     localStorage.setItem('blurAmounts', String(v));
+  };
+  const toggleExcludeReimbursed = (v: boolean) => {
+    setExcludeReimbursed(v);
+    localStorage.setItem('excludeReimbursed', String(v));
   };
   const handleStatementMonthOffsetChange = (v: number) => {
     setStatementMonthOffset(v);
@@ -263,6 +268,7 @@ function App() {
             onStevieMood={setStevieMood}
             stevieStatHighlight={stevieStatHighlight}
             statementMonthOffset={statementMonthOffset}
+            excludeReimbursed={excludeReimbursed}
           />
         )}
         {activeTab === 'transactions' && (
@@ -280,6 +286,7 @@ function App() {
             onStevieMood={setStevieMood}
             stevieStatHighlight={stevieStatHighlight}
             statementMonthOffset={statementMonthOffset}
+            excludeReimbursed={excludeReimbursed}
           />
         )}
         {activeTab === 'upload' && (
@@ -301,6 +308,8 @@ function App() {
             householdId={householdId}
             blurAmounts={blurAmounts}
             onBlurAmountsChange={toggleBlurAmounts}
+            excludeReimbursed={excludeReimbursed}
+            onExcludeReimbursedChange={toggleExcludeReimbursed}
             statementMonthOffset={statementMonthOffset}
             onStatementMonthOffsetChange={handleStatementMonthOffsetChange}
             householdName={householdName}
