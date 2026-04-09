@@ -4,7 +4,6 @@ import { db } from '../firebase';
 import { CATEGORIES } from '../types';
 import { extractMerchantPattern } from '../lib/categorize';
 import { PARENT_CATEGORY_NAMES, transactionMatchesCategoryFilter } from '../lib/categoryGroups';
-import { SparkCard } from './ui/SparkCard';
 import { FilterSelect } from './ui/FilterSelect';
 import { Modal, ModalBodyPanel } from './ui/Modal';
 import { reconcileBillingPeriod } from '../lib/statementPeriod';
@@ -89,7 +88,6 @@ export function TransactionList({
   onCardChange,
   householdId,
   onStevieMood,
-  stevieStatHighlight = null,
   statementMonthOffset,
 }: Props) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);

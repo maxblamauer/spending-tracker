@@ -4,7 +4,6 @@ import { ResponsiveLine } from '@nivo/line';
 import { ResponsiveBar } from '@nivo/bar';
 import { collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
-import { SparkCard } from './ui/SparkCard';
 import { FilterSelect } from './ui/FilterSelect';
 import { billingPeriodInclusiveDays, reconcileBillingPeriod } from '../lib/statementPeriod';
 import { CHILD_TO_PARENT } from '../lib/categoryGroups';
@@ -150,7 +149,6 @@ export function Dashboard({
   selectedCard,
   onCardChange,
   onStevieMood,
-  stevieStatHighlight = null,
   statementMonthOffset,
 }: Props) {
   const [byCategory, setByCategory] = useState<CategoryStat[]>([]);
@@ -715,11 +713,6 @@ export function Dashboard({
                 detail: groupedForPie.length > 0 ? fmtMoney(groupedForPie[0].total) : undefined,
               },
             ];
-
-            // Add change % to first cell
-            const changeVal = showCardFilter && !selectedCard
-              ? undefined
-              : selectedStatement ? selectedSpendingChange : (stmtTotals.length > 1 ? spendingChange : undefined);
 
             // Build monthly rows if applicable
             let monthlyRows: { label: string; value: string; valueColor?: string; detail?: string }[] | null = null;
