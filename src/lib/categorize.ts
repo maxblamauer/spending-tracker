@@ -338,6 +338,12 @@ const KEYWORDS: Record<string, KeywordRule[]> = {
     { kw: 'trsf from', w: 15 },
     { kw: 'payment - thank', w: 15 },
   ],
+  'Cashback': [
+    { kw: 'cashback', w: 15 },
+    { kw: 'remises', w: 15 },
+    { kw: 'cash back redem', w: 15 },
+    { kw: 'rewards redemption', w: 15 },
+  ],
 };
 
 function scoreDescription(desc: string): { category: string; score: number } {

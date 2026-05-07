@@ -27,6 +27,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   'Alcohol & Liquor':     '#88b44a',
   'Fees & Charges':       '#8899aa',
   'Payment':              '#4abf8a',
+  'Cashback':             '#5fb87a',
   'Convenience Store':    '#cc7a3a',
   'Entertainment':        '#aa80cc',
   'Shopping - Home':      '#c48a5a',
@@ -793,7 +794,7 @@ export function Dashboard({
                 label: 'Refunds',
                 value: totalRefunds > 0 ? `-${fmtMoney(totalRefunds)}` : '$0.00',
                 valueColor: totalRefunds > 0 ? 'var(--green)' : undefined,
-                detail: excludeReimbursed ? 'Excluded by setting' : undefined,
+                detail: excludeReimbursed ? 'Excluded by setting' : 'Includes cashback & reimbursements',
               });
             }
 

@@ -87,6 +87,7 @@ export const CATEGORIES = [
   'Convenience Store',
   'Fees & Charges',
   'Payment',
+  'Cashback',
   'Other',
 ] as const;
 

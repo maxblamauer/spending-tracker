@@ -530,11 +530,11 @@ export function TransactionList({
               <span className="monthly-summary-detail">{chargeCount > 0 ? `Across ${chargeCount} charge${chargeCount !== 1 ? 's' : ''}` : 'No charges in view'}</span>
             </div>
             <div className="monthly-summary-cell">
-              <span className="monthly-summary-label">Refunds & reimbursements</span>
+              <span className="monthly-summary-label">Refunds</span>
               <span className="monthly-summary-value" style={totalRefunds > 0 ? { color: 'var(--green)' } : undefined}>
                 {totalRefunds > 0 ? `-${fmtMoney(totalRefunds)}` : '$0.00'}
               </span>
-              {totalRefunds > 0 && reimbursedAmount > 0 && <span className="monthly-summary-detail">{fmtMoney(reimbursedAmount)} reimbursed</span>}
+              <span className="monthly-summary-detail">Includes cashback & reimbursements</span>
             </div>
           </div>
         </div>
